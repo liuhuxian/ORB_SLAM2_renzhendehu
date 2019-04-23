@@ -116,6 +116,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     int fIniThFAST = fSettings["ORBextractor.iniThFAST"];
     int fMinThFAST = fSettings["ORBextractor.minThFAST"];
 
+    //新建ORBextractor对象，执行其构造函数
     mpORBextractorLeft = new ORBextractor(nFeatures,fScaleFactor,nLevels,fIniThFAST,fMinThFAST);
 
     if(sensor==System::STEREO)
@@ -239,6 +240,7 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 {
     mImGray = im;
 
+    //将图片转化为灰度图
     if(mImGray.channels()==3)
     {
         if(mbRGB)
@@ -253,7 +255,8 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
         else
             cvtColor(mImGray,mImGray,CV_BGRA2GRAY);
     }
-
+    
+    //如果tracking没有初始化，或者没有图片（也是没有初始化），则新建一个Frame对象
     if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
         mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
     else
@@ -276,6 +279,7 @@ void Tracking::Track()
     // Get Map Mutex -> Map cannot be changed
     unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
+    //如果tracking没有初始化，则初始化
     if(mState==NOT_INITIALIZED)
     {
         if(mSensor==System::STEREO || mSensor==System::RGBD)
@@ -302,6 +306,7 @@ void Tracking::Track()
             if(mState==OK)
             {
                 // Local Mapping might have changed some MapPoints tracked in last frame
+		//首先检测上一帧中的所有地图点中有没有可以代替该地图点的其他地图点，如果有则将两地图点融合为一个地图点（用替代点替代当前帧中的地图点）
                 CheckReplacedInLastFrame();
 
                 if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)
@@ -563,9 +568,13 @@ void Tracking::StereoInitialization()
 void Tracking::MonocularInitialization()
 {
 
+    //如果指针mpInitializer指向NULL
+    //注意mpInitializer在tracking的构造函数里指向static_cast<Initializer*>(NULL)
+    //这表明还没有参考帧
     if(!mpInitializer)
     {
         // Set Reference Frame
+	//如果如果当前帧特征点数量大于100
         if(mCurrentFrame.mvKeys.size()>100)
         {
             mInitialFrame = Frame(mCurrentFrame);
@@ -574,21 +583,27 @@ void Tracking::MonocularInitialization()
             for(size_t i=0; i<mCurrentFrame.mvKeysUn.size(); i++)
                 mvbPrevMatched[i]=mCurrentFrame.mvKeysUn[i].pt;
 
+	    //确认mpInitializer指向NULL
             if(mpInitializer)
                 delete mpInitializer;
 
             mpInitializer =  new Initializer(mCurrentFrame,1.0,200);
-
+	    
+	    //将mvIniMatches全部初始化为-1
             fill(mvIniMatches.begin(),mvIniMatches.end(),-1);
 
             return;
         }
     }
+    //如果指针mpInitializer没有指向NULL，也就是说我们在之前已经新建过一个Initializer对象，并使 mpInitializer指向它了
     else
     {
         // Try to initialize
+	//尝试初始化
+	//如果当前帧特征点数量<=100
         if((int)mCurrentFrame.mvKeys.size()<=100)
         {
+	    //删除mpInitializer指针并指向NULL
             delete mpInitializer;
             mpInitializer = static_cast<Initializer*>(NULL);
             fill(mvIniMatches.begin(),mvIniMatches.end(),-1);
@@ -596,6 +611,7 @@ void Tracking::MonocularInitialization()
         }
 
         // Find correspondences
+        //新建一个ORBmatcher对象
         ORBmatcher matcher(0.9,true);
         int nmatches = matcher.SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
 

@@ -45,11 +45,13 @@ int main(int argc, char **argv)
     vector<string> vstrImageFilenames;
     vector<double> vTimestamps;
     string strFile = string(argv[3])+"/rgb.txt";
+    //读取图片目录
     LoadImages(strFile, vstrImageFilenames, vTimestamps);
 
     int nImages = vstrImageFilenames.size();
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
+    //创建ORB_SLAM2::System对象，系统执行其构造函数
     ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::MONOCULAR,true);
 
     // Vector for tracking time statistics
@@ -62,10 +64,13 @@ int main(int argc, char **argv)
 
     // Main loop
     cv::Mat im;
+    //循环读取图片
     for(int ni=0; ni<nImages; ni++)
     {
         // Read image from file
+	//读取图片
         im = cv::imread(string(argv[3])+"/"+vstrImageFilenames[ni],CV_LOAD_IMAGE_UNCHANGED);
+	//读取时间戳
         double tframe = vTimestamps[ni];
 
         if(im.empty())
@@ -82,6 +87,7 @@ int main(int argc, char **argv)
 #endif
 
         // Pass the image to the SLAM system
+	//通过TrackMonocular方法像系统传递图片
         SLAM.TrackMonocular(im,tframe);
 
 #ifdef COMPILEDWITHC11
@@ -106,6 +112,7 @@ int main(int argc, char **argv)
     }
 
     // Stop all threads
+    //关闭线程
     SLAM.Shutdown();
 
     // Tracking time statistics
@@ -120,6 +127,7 @@ int main(int argc, char **argv)
     cout << "mean tracking time: " << totaltime/nImages << endl;
 
     // Save camera trajectory
+    //保存轨迹文件
     SLAM.SaveKeyFrameTrajectoryTUM("KeyFrameTrajectory.txt");
 
     return 0;
