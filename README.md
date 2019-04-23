@@ -1,4 +1,6 @@
-# ORB-SLAM2
+ORB_SLAM2认真的虎注释版
+
+
 **Authors:** [Raul Mur-Artal](http://webdiis.unizar.es/~raulmur/), [Juan D. Tardos](http://webdiis.unizar.es/~jdtardos/), [J. M. M. Montiel](http://webdiis.unizar.es/~josemari/) and [Dorian Galvez-Lopez](http://doriangalvez.com/) ([DBoW2](https://github.com/dorian3d/DBoW2))
 
 **13 Jan 2017**: OpenCV 3 and Eigen 3.3 are now supported.
@@ -237,4 +239,3 @@ This is the default mode. The system runs in parallal three threads: Tracking, L
 
 ### Localization Mode
 This mode can be used when you have a good map of your working area. In this mode the Local Mapping and Loop Closing are deactivated. The system localizes the camera in the map (which is no longer updated), using relocalization if needed. 
-
