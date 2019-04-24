@@ -402,9 +402,20 @@ int ORBmatcher::SearchByProjection(KeyFrame* pKF, cv::Mat Scw, const vector<MapP
     return nmatches;
 }
 
+/**
+ * 搜索F1和F2之间的匹配点
+ * 计算出rotHist，vnMatches12
+ * @param F1       
+ * @param F2       
+ * @param vbPrevMatched  F1中待匹配的特征点
+ * @param vnMatches12    输出F1中特征点匹配情况，-1表示为匹配，>0表示匹配的特征点在F2中的序号
+ * @param windowSize     加速匹配时用到的方形边长
+ */
 int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f> &vbPrevMatched, vector<int> &vnMatches12, int windowSize)
 {
     int nmatches=0;
+    
+    //储存F1中匹配成功的点在F2中的序号
     vnMatches12 = vector<int>(F1.mvKeysUn.size(),-1);
 
     vector<int> rotHist[HISTO_LENGTH];
@@ -412,27 +423,39 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
         rotHist[i].reserve(500);
     const float factor = 1.0f/HISTO_LENGTH;
 
+    //储存匹配成功的特征点的描述子之间的距离
     vector<int> vMatchedDistance(F2.mvKeysUn.size(),INT_MAX);
+    //储存F2中匹配成功的点在F1中的序号
     vector<int> vnMatches21(F2.mvKeysUn.size(),-1);
 
+    //遍历F1中畸变纠正后的特征点
     for(size_t i1=0, iend1=F1.mvKeysUn.size(); i1<iend1; i1++)
     {
         cv::KeyPoint kp1 = F1.mvKeysUn[i1];
         int level1 = kp1.octave;
+	//只处理第0层的特征点
         if(level1>0)
             continue;
-
+	
+	//搜索F2中，以vbPrevMatched[i1]为中心，边长为2*windowSize的方形内，尺度为level1的特征点。注意返回的特征点集合是F2中特征点序号集合
+	//这些F2中的特征点是最有可能和F1中il匹配上的
         vector<size_t> vIndices2 = F2.GetFeaturesInArea(vbPrevMatched[i1].x,vbPrevMatched[i1].y, windowSize,level1,level1);
 
         if(vIndices2.empty())
             continue;
-
+	
+	//去除F1中il的描述子
         cv::Mat d1 = F1.mDescriptors.row(i1);
-
+	
+	//初始化描述子间最小距离
         int bestDist = INT_MAX;
+	//初始化描述子间次小距离
         int bestDist2 = INT_MAX;
+	//描述子间最小距离对应在F2中特征点序号
         int bestIdx2 = -1;
 
+	//遍历vIndices2
+	//在vIndices2中找出和i1距离最小的点，也就是最匹配的点，并更新bestDist，bestDist2
         for(vector<size_t>::iterator vit=vIndices2.begin(); vit!=vIndices2.end(); vit++)
         {
             size_t i2 = *vit;
@@ -444,6 +467,7 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
             if(vMatchedDistance[i2]<=dist)
                 continue;
 
+	    //更新bestDist，bestDist2
             if(dist<bestDist)
             {
                 bestDist2=bestDist;
@@ -456,10 +480,13 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
             }
         }
 
+        //描述子距离小于等于TH_LOW才考虑匹配
         if(bestDist<=TH_LOW)
         {
+	    //如果最小距离bestDist，与次小距离相距足够远（用mfNNratio描述次阈值），则匹配成功，否则放弃
             if(bestDist<(float)bestDist2*mfNNratio)
             {
+		//其他的F1中的特征点已经和bestIdx2匹配上了，形成冲突，于是删除之前的匹配，然后代替它
                 if(vnMatches21[bestIdx2]>=0)
                 {
                     vnMatches12[vnMatches21[bestIdx2]]=-1;
@@ -469,9 +496,14 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
                 vnMatches21[bestIdx2]=i1;
                 vMatchedDistance[bestIdx2]=bestDist;
                 nmatches++;
-
+ 
+		//如果开启方向模糊查询
+		//将匹配的特征点之间角度分成HISTO_LENGTH个方向描述，放在rotHist里
+		//假设HISTO_LENGTH=8，那么rotHist存放这0~45,45~90...315~360度的F1特征点序号
+		//此时我想找匹配的特征点之间角度在45~90的，F1特征点，只需在rotHist[1]查询即可
                 if(mbCheckOrientation)
                 {
+		    //计算匹配的特征点之间角度
                     float rot = F1.mvKeysUn[i1].angle-F2.mvKeysUn[bestIdx2].angle;
                     if(rot<0.0)
                         rot+=360.0f;

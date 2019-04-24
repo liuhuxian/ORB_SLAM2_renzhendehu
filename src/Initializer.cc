@@ -29,7 +29,12 @@
 
 namespace ORB_SLAM2
 {
-
+/**
+ * Initializer构造函数
+ * @param ReferenceFrame 输入Initializer参考帧
+ * @param sigma
+ * @param iterations  RANSAC迭代次数
+ */
 Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iterations)
 {
     mK = ReferenceFrame.mK.clone();
@@ -47,9 +52,11 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     // Fill structures with current keypoints and matches with reference frame
     // Reference Frame: 1, Current Frame: 2
     mvKeys2 = CurrentFrame.mvKeysUn;
-
+    
+    //mvMatches12储存着匹配点对在参考帧F1和当前帧F2中的序号
     mvMatches12.clear();
     mvMatches12.reserve(mvKeys2.size());
+    //描述参考帧F1中特征点匹配情况
     mvbMatched1.resize(mvKeys1.size());
     for(size_t i=0, iend=vMatches12.size();i<iend; i++)
     {
@@ -61,7 +68,8 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
         else
             mvbMatched1[i]=false;
     }
-
+    
+    //匹配点数
     const int N = mvMatches12.size();
 
     // Indices for minimum set selection
@@ -75,6 +83,9 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     }
 
     // Generate sets of 8 points for each RANSAC iteration
+    // 在所有匹配特征点对中随机选择8对匹配特征点为一组，共选择mMaxIterations组
+    // 用于FindHomography和FindFundamental求解
+    // mMaxIterations:200
     mvSets = vector< vector<size_t> >(mMaxIterations,vector<size_t>(8,0));
 
     DUtils::Random::SeedRandOnce(0);
@@ -98,13 +109,19 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
 
     // Launch threads to compute in parallel a fundamental matrix and a homography
     vector<bool> vbMatchesInliersH, vbMatchesInliersF;
+    //SH计算单应矩阵的得分，SF计算基础矩阵得分
     float SH, SF;
     cv::Mat H, F;
 
+    //启动线程，第一个参数是启用函数的指针，后面是调用这个函数所需的参数
+    //由于FindHomography第二三个参数是引用，所以需要用ref()包裹
+    // 计算homograpy和得分
     thread threadH(&Initializer::FindHomography,this,ref(vbMatchesInliersH), ref(SH), ref(H));
+    // 计算fundamental和得分
     thread threadF(&Initializer::FindFundamental,this,ref(vbMatchesInliersF), ref(SF), ref(F));
 
     // Wait until both threads have finished
+    //等待线程threadH，threadF结束才能退出Initialize（）
     threadH.join();
     threadF.join();
 
@@ -112,6 +129,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     float RH = SH/(SH+SF);
 
     // Try to reconstruct from homography or fundamental depending on the ratio (0.40-0.45)
+    // 从H矩阵或F矩阵中恢复R,t
     if(RH>0.40)
         return ReconstructH(vbMatchesInliersH,H,mK,R21,t21,vP3D,vbTriangulated,1.0,50);
     else //if(pF_HF>0.6)
@@ -120,10 +138,11 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     return false;
 }
 
-
+// 计算homograpy和得分
 void Initializer::FindHomography(vector<bool> &vbMatchesInliers, float &score, cv::Mat &H21)
 {
     // Number of putative matches
+    //假定匹配的数量
     const int N = mvMatches12.size();
 
     // Normalize coordinates
@@ -746,6 +765,8 @@ void Initializer::Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, 
     x3D = x3D.rowRange(0,3)/x3D.at<float>(3);
 }
 
+
+// 归一化特征点
 void Initializer::Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, cv::Mat &T)
 {
     float meanX = 0;

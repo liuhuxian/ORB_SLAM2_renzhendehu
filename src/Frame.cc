@@ -145,9 +145,11 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     ComputeStereoFromRGBD(imDepth);
 
     mvpMapPoints = vector<MapPoint*>(N,static_cast<MapPoint*>(NULL));
+    //储存哪些关键点是离群值
     mvbOutlier = vector<bool>(N,false);
 
     // This is done only for the first Frame (or after a change in the calibration)
+    
     if(mbInitialComputations)
     {
         ComputeImageBounds(imGray);
@@ -195,6 +197,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
     if(mvKeys.empty())
         return;
 
+    //关键点畸变纠正
     UndistortKeyPoints();
 
     // Set no stereo information
@@ -224,9 +227,11 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
 
     mb = mbf/fx;
 
+    //将特征点分配到窗格中以加速特征点匹配
     AssignFeaturesToGrid();
 }
 
+//将特征点分配到窗格中以加速特征点匹配
 void Frame::AssignFeaturesToGrid()
 {
     int nReserve = 0.5f*N/(FRAME_GRID_COLS*FRAME_GRID_ROWS);
@@ -324,11 +329,22 @@ bool Frame::isInFrustum(MapPoint *pMP, float viewingCosLimit)
     return true;
 }
 
+/**
+ * 找到在 以x, y为中心,边长为2r的方形内且尺度在[minLevel, maxLevel]的特征点
+ * @param x        图像坐标u
+ * @param y        图像坐标v
+ * @param r        边长
+ * @param minLevel 最小尺度
+ * @param maxLevel 最大尺度
+ * @return         满足条件的特征点的序号
+ */
 vector<size_t> Frame::GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel, const int maxLevel) const
 {
     vector<size_t> vIndices;
     vIndices.reserve(N);
-
+    
+    //接下来计算方形的四边在哪在mGrid中的行数和列数
+    //nMinCellX是方形左边在mGrid中的列数，如果它比mGrid的列数大，说明方形内肯定没有特征点，于是返回
     const int nMinCellX = max(0,(int)floor((x-mnMinX-r)*mfGridElementWidthInv));
     if(nMinCellX>=FRAME_GRID_COLS)
         return vIndices;
@@ -366,10 +382,11 @@ vector<size_t> Frame::GetFeaturesInArea(const float &x, const float  &y, const f
                         if(kpUn.octave>maxLevel)
                             continue;
                 }
-
+		//确认此特征点在方形内
                 const float distx = kpUn.pt.x-x;
                 const float disty = kpUn.pt.y-y;
-
+		
+		
                 if(fabs(distx)<r && fabs(disty)<r)
                     vIndices.push_back(vCell[j]);
             }
@@ -410,6 +427,7 @@ void Frame::UndistortKeyPoints()
     }
 
     // Fill matrix with points
+    //储存orb坐标
     cv::Mat mat(N,2,CV_32F);
     for(int i=0; i<N; i++)
     {
