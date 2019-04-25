@@ -29,12 +29,6 @@
 
 namespace ORB_SLAM2
 {
-/**
- * Initializer构造函数
- * @param ReferenceFrame 输入Initializer参考帧
- * @param sigma  //计算单应矩阵H和基础矩阵得分F时候一个参数
- * @param iterations  RANSAC迭代次数
- */
 Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iterations)
 {
     mK = ReferenceFrame.mK.clone();
@@ -108,6 +102,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     }
 
     // Launch threads to compute in parallel a fundamental matrix and a homography
+    //vbMatchesInliersH，ORBmatcher计算出的匹配中，哪些能够通过H重投影成功
     vector<bool> vbMatchesInliersH, vbMatchesInliersF;
     //SH计算单应矩阵的得分，SF计算基础矩阵得分
     float SH, SF;
@@ -175,10 +170,12 @@ void Initializer::FindHomography(vector<bool> &vbMatchesInliers, float &score, c
             vPn2i[j] = vPn2[mvMatches12[idx].second];
         }
 
+        //计算H
         cv::Mat Hn = ComputeH21(vPn1i,vPn2i);
         H21i = T2inv*Hn*T1;
         H12i = H21i.inv();
 
+	//在参数 mSigma下，能够通过H21，H12重投影成功的点有哪些，并返回分数
         currentScore = CheckHomography(H21i, H12i, vbCurrentInliers, mSigma);
 
         if(currentScore>score)
@@ -243,8 +240,6 @@ void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, 
     }
 }
 
-//视觉slam十四讲P147,7.3.3.单应矩阵
-//通过vP1，vP2求得单应矩阵并返回
 cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2)
 {
     const int N = vP1.size();
@@ -286,7 +281,7 @@ cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv:
     //SVD分解A=u*w*vt
     cv::SVDecomp(A,w,u,vt,cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
 
-    //为什么这里只返回了vt最后一个行向量呢?
+    //返回了vt最后一个行向量
     return vt.row(8).reshape(0, 3);
 }
 
@@ -389,7 +384,7 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
 
         const float chiSquare1 = squareDist1*invSigmaSquare;
 
-	//chiSquare1>th说明重投影失败
+	//chiSquare1>th说明匹配的点对F1投影到F2，重投影失败
         if(chiSquare1>th)
             bIn = false;
         else
@@ -607,6 +602,7 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
 bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv::Mat &K,
                       cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated)
 {
+    //N，通过H重投影成功的数量
     int N=0;
     for(size_t i=0, iend = vbMatchesInliers.size() ; i<iend; i++)
         if(vbMatchesInliers[i])
@@ -735,11 +731,15 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
 
     // Instead of applying the visibility constraints proposed in the Faugeras' paper (which could fail for points seen with low parallax)
     // We reconstruct all hypotheses and check in terms of triangulated points and parallax
+    //经过上面的计算，公共有8种R，t计算结果，遍历这8种可能模型
+    //通过计算出匹配点的三角化重投影成功的数量，来找出最好模型和次好模型
     for(size_t i=0; i<8; i++)
     {
         float parallaxi;
         vector<cv::Point3f> vP3Di;
         vector<bool> vbTriangulatedi;
+	
+	
         int nGood = CheckRT(vR[i],vt[i],mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K,vP3Di, 4.0*mSigma2, vbTriangulatedi, parallaxi);
 
         if(nGood>bestGood)
@@ -757,7 +757,10 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
         }
     }
 
-
+    //secondBestGood<0.75*bestGood 如果最好模型与次好模型差距足够大
+    //bestParallax>=minParallax 最好模型对应的视差角大于此值
+    //bestGood>minTriangulated 最好模型对应的匹配点三角化重投影成功数量大于此阈值
+    //bestGood>0.9*N 匹配点三角化重投影成功数量占通过H重投影成功数量的比例需要大于0.9
     if(secondBestGood<0.75*bestGood && bestParallax>=minParallax && bestGood>minTriangulated && bestGood>0.9*N)
     {
         vR[bestSolutionIdx].copyTo(R21);
@@ -782,17 +785,13 @@ void Initializer::Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, 
 
     cv::Mat u,w,vt;
     cv::SVD::compute(A,w,u,vt,cv::SVD::MODIFY_A| cv::SVD::FULL_UV);
+    //取最后一个行向量
     x3D = vt.row(3).t();
+    //转换为齐次坐标
     x3D = x3D.rowRange(0,3)/x3D.at<float>(3);
 }
 
 
-/**
-* 将一个特征点集合归一化到另一个坐标系，使得归一化后的坐标点集合均值为0，一阶绝对矩为1
-* @param vKeys 输入待归一化特征点集合
-* @param vNormalizedPoints  输出归一化后特征点集合
-* @param T    vNormalizedPoints=T*vKeys
-*/
 void Initializer::Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, cv::Mat &T)
 {
     float meanX = 0;
@@ -859,32 +858,43 @@ int Initializer::CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::Ke
     vCosParallax.reserve(vKeys1.size());
 
     // Camera 1 Projection Matrix K[I|0]
+    //相机1的投影矩阵K[I|0]，世界坐标系和相机1坐标系相同
     cv::Mat P1(3,4,CV_32F,cv::Scalar(0));
     K.copyTo(P1.rowRange(0,3).colRange(0,3));
 
+    // 相机1的光心在世界坐标系坐标
     cv::Mat O1 = cv::Mat::zeros(3,1,CV_32F);
 
     // Camera 2 Projection Matrix K[R|t]
+    //相机2的投影矩阵
     cv::Mat P2(3,4,CV_32F);
     R.copyTo(P2.rowRange(0,3).colRange(0,3));
     t.copyTo(P2.rowRange(0,3).col(3));
     P2 = K*P2;
 
+    // 相机2的光心在世界坐标系坐标
     cv::Mat O2 = -R.t()*t;
 
     int nGood=0;
 
+    //遍历所有的匹配点
     for(size_t i=0, iend=vMatches12.size();i<iend;i++)
     {
+	//如果在
         if(!vbMatchesInliers[i])
             continue;
 
         const cv::KeyPoint &kp1 = vKeys1[vMatches12[i].first];
         const cv::KeyPoint &kp2 = vKeys2[vMatches12[i].second];
+	
+	//3d点在相机1和世界坐标系下的坐标
         cv::Mat p3dC1;
-
+	
+	//输出的p3dC1是综合考虑了P1,P2的kp1,kp2匹配点在世界坐标系中的齐次坐标
+	//由于世界坐标系和相机1坐标系重合，所以p3dC1同时也是匹配点对应的空间点在相机1坐标系中的坐标
         Triangulate(kp1,kp2,P1,P2,p3dC1);
-
+	//isfinite()判断一个浮点数是否是一个有限值
+	//相当于是确定p3dC1前三位数值正常
         if(!isfinite(p3dC1.at<float>(0)) || !isfinite(p3dC1.at<float>(1)) || !isfinite(p3dC1.at<float>(2)))
         {
             vbGood[vMatches12[i].first]=false;
@@ -892,30 +902,38 @@ int Initializer::CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::Ke
         }
 
         // Check parallax
+        //normal1是相机1到3d点的向量
         cv::Mat normal1 = p3dC1 - O1;
         float dist1 = cv::norm(normal1);
-
+	
+	//normal2是相机2到3d点的向量
         cv::Mat normal2 = p3dC1 - O2;
         float dist2 = cv::norm(normal2);
 
+	//cosParallax为视差角的余弦，也就是normal1与normal2的余弦
         float cosParallax = normal1.dot(normal2)/(dist1*dist2);
 
         // Check depth in front of first camera (only if enough parallax, as "infinite" points can easily go to negative depth)
+	//p3dC1.at<float>(2)<=0说明3d点在光心后面，深度为负
+	//p3dC1视差角较大，且深度为负则淘汰
         if(p3dC1.at<float>(2)<=0 && cosParallax<0.99998)
             continue;
 
         // Check depth in front of second camera (only if enough parallax, as "infinite" points can easily go to negative depth)
         cv::Mat p3dC2 = R*p3dC1+t;
-
+	
+	//p3dC2视差角较大，且深度为负则淘汰
         if(p3dC2.at<float>(2)<=0 && cosParallax<0.99998)
             continue;
 
         // Check reprojection error in first image
+	// 计算3D点在第一个图像上的投影误差
         float im1x, im1y;
         float invZ1 = 1.0/p3dC1.at<float>(2);
         im1x = fx*p3dC1.at<float>(0)*invZ1+cx;
         im1y = fy*p3dC1.at<float>(1)*invZ1+cy;
 
+	
         float squareError1 = (im1x-kp1.pt.x)*(im1x-kp1.pt.x)+(im1y-kp1.pt.y)*(im1y-kp1.pt.y);
 
         if(squareError1>th2)
@@ -929,22 +947,29 @@ int Initializer::CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::Ke
 
         float squareError2 = (im2x-kp2.pt.x)*(im2x-kp2.pt.x)+(im2y-kp2.pt.y)*(im2y-kp2.pt.y);
 
+	
+        // 重投影误差太大，淘汰
         if(squareError2>th2)
             continue;
 
+	//到这里说明这对匹配点三角化重投影成功了
         vCosParallax.push_back(cosParallax);
         vP3D[vMatches12[i].first] = cv::Point3f(p3dC1.at<float>(0),p3dC1.at<float>(1),p3dC1.at<float>(2));
         nGood++;
 
+	//确认视差角最够大
         if(cosParallax<0.99998)
             vbGood[vMatches12[i].first]=true;
     }
 
     if(nGood>0)
     {
+	//将视差角余弦有小到大排序
         sort(vCosParallax.begin(),vCosParallax.end());
 
+	//取出第50个，或者最后那个也就是最大那个
         size_t idx = min(50,int(vCosParallax.size()-1));
+	//计算出视差角
         parallax = acos(vCosParallax[idx])*180/CV_PI;
     }
     else

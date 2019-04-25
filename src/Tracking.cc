@@ -613,9 +613,11 @@ void Tracking::MonocularInitialization()
         // Find correspondences
         //新建一个ORBmatcher对象
         ORBmatcher matcher(0.9,true);
+	//寻找特征点匹配
         int nmatches = matcher.SearchForInitialization(mInitialFrame,mCurrentFrame,mvbPrevMatched,mvIniMatches,100);
 
         // Check if there are enough correspondences
+	//如果匹配的点过少，则删除前一帧的初始化器
         if(nmatches<100)
         {
             delete mpInitializer;
@@ -623,6 +625,7 @@ void Tracking::MonocularInitialization()
             return;
         }
 
+        //开始要计算位姿R，t了！！
         cv::Mat Rcw; // Current Camera Rotation
         cv::Mat tcw; // Current Camera Translation
         vector<bool> vbTriangulated; // Triangulated Correspondences (mvIniMatches)

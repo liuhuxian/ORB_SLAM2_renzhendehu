@@ -34,6 +34,7 @@
 
 namespace ORB_SLAM2
 {
+//在AssignFeaturesToGrid()中分配特征点时的行数和列数
 #define FRAME_GRID_ROWS 48
 #define FRAME_GRID_COLS 64
 
@@ -84,8 +85,18 @@ public:
     bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
 
     // Compute the cell of a keypoint (return false if outside the grid)
+    //计算kp在哪一个窗格，如果超出边界则返回false
     bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
 
+    /**
+    * 找到在 以x, y为中心,边长为2r的方形内且在[minLevel, maxLevel]的特征点
+    * @param x        图像坐标u
+    * @param y        图像坐标v
+    * @param r        边长
+    * @param minLevel 最小尺度
+    * @param maxLevel 最大尺度
+    * @return         满足条件的特征点的序号
+    */
     vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
 
     // Search a match for each keypoint in the left image to a keypoint in the right image.
@@ -134,7 +145,9 @@ public:
     // Vector of keypoints (original for visualization) and undistorted (actually used by the system).
     // In the stereo case, mvKeysUn is redundant as images must be rectified.
     // In the RGB-D case, RGB images can be distorted.
+    //畸变的orb关键点
     std::vector<cv::KeyPoint> mvKeys, mvKeysRight;
+    //纠正后的关键点
     std::vector<cv::KeyPoint> mvKeysUn;
 
     // Corresponding stereo coordinate and depth for each keypoint.
@@ -147,6 +160,7 @@ public:
     DBoW2::FeatureVector mFeatVec;
 
     // ORB descriptor, each row associated to a keypoint.
+    //orb描述子
     cv::Mat mDescriptors, mDescriptorsRight;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
@@ -156,21 +170,27 @@ public:
     std::vector<bool> mvbOutlier;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
+    //x轴窗格宽倒数
     static float mfGridElementWidthInv;
+    //y轴窗格高倒数
     static float mfGridElementHeightInv;
+    //储存这各个窗格的特征点在mvKeysUn中的序号
     std::vector<std::size_t> mGrid[FRAME_GRID_COLS][FRAME_GRID_ROWS];
 
     // Camera pose.
     cv::Mat mTcw;
 
     // Current and Next Frame id.
+    //静态变量，下一个Frame对象id
     static long unsigned int nNextId;
+    //当前Frame对象id
     long unsigned int mnId;
 
     // Reference Keyframe.
     KeyFrame* mpReferenceKF;
 
     // Scale pyramid info.
+    //从orbextractor拷贝的关于高斯金字塔的信息
     int mnScaleLevels;
     float mfScaleFactor;
     float mfLogScaleFactor;

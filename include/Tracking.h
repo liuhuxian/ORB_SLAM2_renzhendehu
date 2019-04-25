@@ -98,7 +98,9 @@ public:
 
     // Initialization Variables (Monocular)
     std::vector<int> mvIniLastMatches;
+    //由ORBmatcher计算的初始匹配特征点
     std::vector<int> mvIniMatches;
+    //F1中待匹配的特征点
     std::vector<cv::Point2f> mvbPrevMatched;
     std::vector<cv::Point3f> mvIniP3D;
     Frame mInitialFrame;
@@ -124,6 +126,7 @@ protected:
     void StereoInitialization();
 
     // Map initialization for monocular
+    //单目初始化
     void MonocularInitialization();
     void CreateInitialMapMonocular();
 

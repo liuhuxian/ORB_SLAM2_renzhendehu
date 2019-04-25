@@ -38,6 +38,11 @@ const int ORBmatcher::TH_HIGH = 100;
 const int ORBmatcher::TH_LOW = 50;
 const int ORBmatcher::HISTO_LENGTH = 30;
 
+/**
+* 找到在 以x, y为中心,边长为2r的方形内且尺度在[minLevel, maxLevel]的特征点
+* @param nnratio        匹配特征点是，确定时候最好匹配与次好匹配差距的阈值。其值越大，其匹配越精确
+* @param checkOri       是否开启匹配点的方向分类
+*/
 ORBmatcher::ORBmatcher(float nnratio, bool checkOri): mfNNratio(nnratio), mbCheckOrientation(checkOri)
 {
 }
@@ -403,12 +408,13 @@ int ORBmatcher::SearchByProjection(KeyFrame* pKF, cv::Mat Scw, const vector<MapP
 }
 
 /**
- * 搜索F1和F2之间的匹配点
+ * 搜索F1和F2之间的匹配点放在vnMatches12。如果mbCheckOrientation，则将F1中匹配成功的
+ * 特征点按照其角度分类在rotHist中。
  * 计算出rotHist，vnMatches12
- * @param F1       
- * @param F2       
+ * @param F1       参考帧
+ * @param F2       当前帧
  * @param vbPrevMatched  F1中待匹配的特征点
- * @param vnMatches12    输出F1中特征点匹配情况，-1表示为匹配，>0表示匹配的特征点在F2中的序号
+ * @param vnMatches12    输出F1中特征点匹配情况，大小是F1的特征点数量。其中-1表示未匹配，大于0表示匹配的特征点在F2中的序号
  * @param windowSize     加速匹配时用到的方形边长
  */
 int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f> &vbPrevMatched, vector<int> &vnMatches12, int windowSize)
@@ -418,6 +424,7 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
     //储存F1中匹配成功的点在F2中的序号
     vnMatches12 = vector<int>(F1.mvKeysUn.size(),-1);
 
+    //如果mbCheckOrientation为真，之后匹配成功的F1特征点会按照匹配特征点间的角度分类到rotHist。分类数量为HISTO_LENGTH
     vector<int> rotHist[HISTO_LENGTH];
     for(int i=0;i<HISTO_LENGTH;i++)
         rotHist[i].reserve(500);

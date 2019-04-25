@@ -34,15 +34,26 @@ class Initializer
 
 public:
 
-    // Fix the reference frame
+
     /**
     * Initializer构造函数
     * @param ReferenceFrame 输入Initializer参考帧
     * @param sigma  //计算单应矩阵H和基础矩阵得分F时候一个参数
     * @param iterations  RANSAC迭代次数
     */
+    // Fix the reference frame
     Initializer(const Frame &ReferenceFrame, float sigma = 1.0, int iterations = 200);
 
+
+    /**
+    * 开启初始化
+    * @param CurrentFrame 当前帧
+    * @param vMatches12 orbmatcher计算的初匹配
+    * @param R21
+    * @param t21
+    * @param vP3D
+    * @param vbTriangulated 
+    */
     // Computes in parallel a fundamental matrix and a homography
     // Selects a model and tries to recover the motion and the structure from motion
     bool Initialize(const Frame &CurrentFrame, const vector<int> &vMatches12,
@@ -51,32 +62,79 @@ public:
 
 private:
 
-    // 计算homograpy及其得分
+
+    /**
+    * 计算homograpy及其得分
+    * @param vbMatchesInliers 匹配点中哪些可以通过H21重投影成功
+    * @param score 输出H21得分
+    */
     void FindHomography(vector<bool> &vbMatchesInliers, float &score, cv::Mat &H21);
     // 计算fundamental及其得分
     void FindFundamental(vector<bool> &vbInliers, float &score, cv::Mat &F21);
-
+    //视觉slam十四讲P147,7.3.3.单应矩阵
+    //通过vP1，vP2求得单应矩阵并返回
     cv::Mat ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2);
+    //通过vP1，vP2求得基础矩阵并返回
     cv::Mat ComputeF21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2);
 
 
     /**
-    * 计算单应矩阵得分
-    * @param H21 
-    * @param H12
-    * @param vbMatchesInliers 输出哪些匹配的点重投影成功
-    * @param sigma 
+    * 计算单应矩阵得分，判断哪些点重投影成功
+    * @param vbMatchesInliers 通过H21，H12，匹配点重投影成功情况
+    * @param sigma 计算得分时需要的参数
+    * @return 单应矩阵得分
     */
     float CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vector<bool> &vbMatchesInliers, float sigma);
 
+    /**
+    * 计算基础得分，判断哪些匹配点重投影成功
+    * @param vbMatchesInliers 针对输入的单应矩阵F，匹配点重投影成功情况
+    * @return 基础矩阵得分
+    */
     float CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesInliers, float sigma);
 
+    /**
+    * 通过输入的F21计算Rt
+    * @param vbMatchesInliers 匹配点中哪些可以通过F21重投影成功
+    * @param F21 基础
+    * @param K 内参
+    * @param R21 输出
+    * @param t21 输出
+    * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
+    * @param vbTriangulated 匹配点中哪些可以通过F21重投影成功
+    * @param minParallax 设置的最小视差角余弦值参数，输出Rt模型的视差角小于此值则返回失败
+    * @param minTriangulated 匹配点中H21重投影成功的个数如果小于此值，返回失败
+    * @return 通过输入的H21计算Rt是否成功
+    */
     bool ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv::Mat &K,
                       cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated);
 
+    /**
+    * 通过输入的H21计算Rt
+    * @param vbMatchesInliers 匹配点中哪些可以通过H21重投影成功
+    * @param H21 单应矩阵
+    * @param K 内参
+    * @param R21 输出
+    * @param t21 输出
+    * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
+    * @param vbTriangulated 匹配点中哪些可以通过H21重投影成功
+    * @param minParallax 设置的最小视差角余弦值参数，输出Rt模型的视差角小于此值则返回失败
+    * @param minTriangulated 匹配点中H21重投影成功的个数如果小于此值，返回失败
+    * @return 通过输入的H21计算Rt是否成功
+    */
     bool ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv::Mat &K,
                       cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated);
 
+    /**
+    * 计算kp1,kp2是匹配的关键点，它对应着世界坐标系中的一个点。
+    * P1,P2是F1，F2对应的投影矩阵。
+    * 输出综合考虑了P1,P2,kp1,kp2的在世界坐标系中的齐次坐标3D点坐标
+    * @param kp1 
+    * @param kp2 
+    * @param P1 
+    * @param P2
+    * @param x3D 输出综合考虑了P1,P2,kp1,kp2的在世界坐标系中的齐次坐标3D点坐标
+    */
     void Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const cv::Mat &P1, const cv::Mat &P2, cv::Mat &x3D);
 
     /**
@@ -87,6 +145,15 @@ private:
     */
     void Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, cv::Mat &T);
 
+    /**
+    * @param vMatches12 orbmatcher计算的初匹配
+    * @param vbInliers 匹配点中哪些可以通过H或者F重投影成功
+    * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
+    * @param th2 根据三角化重投影误差判断匹配点是否重投影成功的阈值
+    * @param vbGood 输出：储存匹配点中哪些三角化重投影成功
+    * @param parallax 三角化重投影成功匹配点的视差角
+    * @return 匹配点三角化重投影成功的数量
+    */
     int CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::KeyPoint> &vKeys1, const vector<cv::KeyPoint> &vKeys2,
                        const vector<Match> &vMatches12, vector<bool> &vbInliers,
                        const cv::Mat &K, vector<cv::Point3f> &vP3D, float th2, vector<bool> &vbGood, float &parallax);
@@ -110,6 +177,7 @@ private:
     cv::Mat mK;
 
     // Standard Deviation and Variance
+    //在CheckFundamental和CheckHomography计算F和H得分的时候有用到的参数
     float mSigma, mSigma2;
 
     // Ransac max iterations

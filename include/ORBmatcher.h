@@ -38,6 +38,11 @@ class ORBmatcher
 {    
 public:
 
+    /**
+    * 找到在 以x, y为中心,边长为2r的方形内且尺度在[minLevel, maxLevel]的特征点
+    * @param nnratio        匹配特征点是，确定时候最好匹配与次好匹配差距的阈值。其值越大，其匹配越精确
+    * @param checkOri       是否开启匹配点的方向分类
+    */
     ORBmatcher(float nnratio=0.6, bool checkOri=true);
 
     // Computes the Hamming distance between two ORB descriptors
@@ -66,6 +71,16 @@ public:
     int SearchByBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12);
 
     // Matching for the Map Initialization (only used in the monocular case)
+    /**
+    * 搜索F1和F2之间的匹配点放在vnMatches12。如果mbCheckOrientation，则将F1中匹配成功的
+    * 特征点按照其角度分类在rotHist中。
+    * 计算出rotHist，vnMatches12
+    * @param F1       参考帧
+    * @param F2       当前帧
+    * @param vbPrevMatched  F1中待匹配的特征点
+    * @param vnMatches12    输出F1中特征点匹配情况，大小是F1的特征点数量。其中-1表示未匹配，大于0表示匹配的特征点在F2中的序号
+    * @param windowSize     加速匹配时用到的方形边长
+    */
     int SearchForInitialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize=10);
 
     // Matching to triangulate new MapPoints. Check Epipolar Constraint.
@@ -84,8 +99,10 @@ public:
 
 public:
 
+    //匹配特征点时，描述子距离的阈值。特征点间描述子小于此值才考虑匹配
     static const int TH_LOW;
     static const int TH_HIGH;
+    //按照匹配特征点之间的角度分类匹配特征点的数量
     static const int HISTO_LENGTH;
 
 
@@ -98,6 +115,7 @@ protected:
     void ComputeThreeMaxima(std::vector<int>* histo, const int L, int &ind1, int &ind2, int &ind3);
 
     float mfNNratio;
+    //是否开启匹配点的方向分类
     bool mbCheckOrientation;
 };
 
