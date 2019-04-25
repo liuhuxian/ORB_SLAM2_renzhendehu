@@ -35,6 +35,12 @@ class Initializer
 public:
 
     // Fix the reference frame
+    /**
+    * Initializer构造函数
+    * @param ReferenceFrame 输入Initializer参考帧
+    * @param sigma  //计算单应矩阵H和基础矩阵得分F时候一个参数
+    * @param iterations  RANSAC迭代次数
+    */
     Initializer(const Frame &ReferenceFrame, float sigma = 1.0, int iterations = 200);
 
     // Computes in parallel a fundamental matrix and a homography
@@ -45,12 +51,22 @@ public:
 
 private:
 
+    // 计算homograpy及其得分
     void FindHomography(vector<bool> &vbMatchesInliers, float &score, cv::Mat &H21);
+    // 计算fundamental及其得分
     void FindFundamental(vector<bool> &vbInliers, float &score, cv::Mat &F21);
 
     cv::Mat ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2);
     cv::Mat ComputeF21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2);
 
+
+    /**
+    * 计算单应矩阵得分
+    * @param H21 
+    * @param H12
+    * @param vbMatchesInliers 输出哪些匹配的点重投影成功
+    * @param sigma 
+    */
     float CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vector<bool> &vbMatchesInliers, float sigma);
 
     float CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesInliers, float sigma);
@@ -63,6 +79,12 @@ private:
 
     void Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const cv::Mat &P1, const cv::Mat &P2, cv::Mat &x3D);
 
+    /**
+    * 将一个特征点集合归一化到另一个坐标系，使得归一化后的坐标点集合均值为0，一阶绝对矩为1
+    * @param vKeys 输入待归一化特征点集合
+    * @param vNormalizedPoints  输出归一化后特征点集合
+    * @param T    vNormalizedPoints=T*vKeys
+    */
     void Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, cv::Mat &T);
 
     int CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::KeyPoint> &vKeys1, const vector<cv::KeyPoint> &vKeys2,
@@ -79,7 +101,9 @@ private:
     vector<cv::KeyPoint> mvKeys2;
 
     // Current Matches from Reference to Current
+    //储存着匹配点对在参考帧F1和当前帧F2中的序号
     vector<Match> mvMatches12;
+    //描述参考帧F1中特征点匹配情况
     vector<bool> mvbMatched1;
 
     // Calibration
@@ -89,9 +113,11 @@ private:
     float mSigma, mSigma2;
 
     // Ransac max iterations
+    //Ransac算法的最大迭代次数
     int mMaxIterations;
 
     // Ransac sets
+    //使用8点法计算F或者H时的RANSAC点对
     vector<vector<size_t> > mvSets;   
 
 };

@@ -32,7 +32,7 @@ namespace ORB_SLAM2
 /**
  * Initializer构造函数
  * @param ReferenceFrame 输入Initializer参考帧
- * @param sigma
+ * @param sigma  //计算单应矩阵H和基础矩阵得分F时候一个参数
  * @param iterations  RANSAC迭代次数
  */
 Initializer::Initializer(const Frame &ReferenceFrame, float sigma, int iterations)
@@ -138,7 +138,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     return false;
 }
 
-// 计算homograpy和得分
+
 void Initializer::FindHomography(vector<bool> &vbMatchesInliers, float &score, cv::Mat &H21)
 {
     // Number of putative matches
@@ -226,8 +226,10 @@ void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, 
             vPn2i[j] = vPn2[mvMatches12[idx].second];
         }
 
+        //计算出归一化特征点对应的基础矩阵
         cv::Mat Fn = ComputeF21(vPn1i,vPn2i);
 
+	//转换成归一化前特征点对应的基础矩阵
         F21i = T2t*Fn*T1;
 
         currentScore = CheckFundamental(F21i, vbCurrentInliers, mSigma);
@@ -241,13 +243,15 @@ void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, 
     }
 }
 
-
+//视觉slam十四讲P147,7.3.3.单应矩阵
+//通过vP1，vP2求得单应矩阵并返回
 cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2)
 {
     const int N = vP1.size();
 
     cv::Mat A(2*N,9,CV_32F);
 
+    //虽然书上说最少用4个点对就可以解出单应矩阵，但是这里依然用的是8个点对
     for(int i=0; i<N; i++)
     {
         const float u1 = vP1[i].x;
@@ -279,8 +283,10 @@ cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv:
 
     cv::Mat u,w,vt;
 
+    //SVD分解A=u*w*vt
     cv::SVDecomp(A,w,u,vt,cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
 
+    //为什么这里只返回了vt最后一个行向量呢?
     return vt.row(8).reshape(0, 3);
 }
 
@@ -290,6 +296,7 @@ cv::Mat Initializer::ComputeF21(const vector<cv::Point2f> &vP1,const vector<cv::
 
     cv::Mat A(N,9,CV_32F);
 
+    //八点法计算F
     for(int i=0; i<N; i++)
     {
         const float u1 = vP1[i].x;
@@ -312,12 +319,16 @@ cv::Mat Initializer::ComputeF21(const vector<cv::Point2f> &vP1,const vector<cv::
 
     cv::SVDecomp(A,w,u,vt,cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
 
+    //用SVD算出基础矩阵
     cv::Mat Fpre = vt.row(8).reshape(0, 3);
 
+    //将基础矩阵svd分解
     cv::SVDecomp(Fpre,w,u,vt,cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
 
+    //根据基础矩阵的性质分解出来的w第三个元素应该为0
     w.at<float>(2)=0;
 
+    //返回复合要求的基础矩阵
     return  u*cv::Mat::diag(w)*vt;
 }
 
@@ -349,10 +360,12 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
 
     float score = 0;
 
+    //判断重投影是否成功的阈值
     const float th = 5.991;
 
     const float invSigmaSquare = 1.0/(sigma*sigma);
 
+    //遍历所有的匹配点
     for(int i=0; i<N; i++)
     {
         bool bIn = true;
@@ -367,15 +380,16 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
 
         // Reprojection error in first image
         // x2in1 = H12*x2
-
         const float w2in1inv = 1.0/(h31inv*u2+h32inv*v2+h33inv);
         const float u2in1 = (h11inv*u2+h12inv*v2+h13inv)*w2in1inv;
         const float v2in1 = (h21inv*u2+h22inv*v2+h23inv)*w2in1inv;
 
+	//计算u2，v2投影到F1后与u1,v1的距离的平方，也就是重投影误差
         const float squareDist1 = (u1-u2in1)*(u1-u2in1)+(v1-v2in1)*(v1-v2in1);
 
         const float chiSquare1 = squareDist1*invSigmaSquare;
 
+	//chiSquare1>th说明重投影失败
         if(chiSquare1>th)
             bIn = false;
         else
@@ -387,7 +401,7 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
         const float w1in2inv = 1.0/(h31*u1+h32*v1+h33);
         const float u1in2 = (h11*u1+h12*v1+h13)*w1in2inv;
         const float v1in2 = (h21*u1+h22*v1+h23)*w1in2inv;
-
+	
         const float squareDist2 = (u2-u1in2)*(u2-u1in2)+(v2-v1in2)*(v2-v1in2);
 
         const float chiSquare2 = squareDist2*invSigmaSquare;
@@ -397,6 +411,7 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
         else
             score += th - chiSquare2;
 
+	//bIn标志着此对匹配点是否重投影成功
         if(bIn)
             vbMatchesInliers[i]=true;
         else
@@ -447,7 +462,8 @@ float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesI
         const float a2 = f11*u1+f12*v1+f13;
         const float b2 = f21*u1+f22*v1+f23;
         const float c2 = f31*u1+f32*v1+f33;
-
+	
+	// num2=x2*F21*x1
         const float num2 = a2*u2+b2*v2+c2;
 
         const float squareDist1 = num2*num2/(a2*a2+b2*b2);
@@ -600,19 +616,24 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
     // Motion and structure from motion in a piecewise planar environment.
     // International Journal of Pattern Recognition and Artificial Intelligence, 1988
 
+    
+    // 将H矩阵由图像坐标系变换到相机坐标系
     cv::Mat invK = K.inv();
     cv::Mat A = invK*H21*K;
 
     cv::Mat U,w,Vt,V;
     cv::SVD::compute(A,w,U,Vt,cv::SVD::FULL_UV);
+    //vt转置
     V=Vt.t();
-
+    //cv::determinant(U)为U的行列式
     float s = cv::determinant(U)*cv::determinant(Vt);
 
     float d1 = w.at<float>(0);
     float d2 = w.at<float>(1);
     float d3 = w.at<float>(2);
 
+    //注意d1>d2>d3
+    //看吴博讲解的ppt19页，只考虑d1!=d2!=d3的情况，其他情况返回失败
     if(d1/d2<1.00001 || d2/d3<1.00001)
     {
         return false;
@@ -766,7 +787,12 @@ void Initializer::Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, 
 }
 
 
-// 归一化特征点
+/**
+* 将一个特征点集合归一化到另一个坐标系，使得归一化后的坐标点集合均值为0，一阶绝对矩为1
+* @param vKeys 输入待归一化特征点集合
+* @param vNormalizedPoints  输出归一化后特征点集合
+* @param T    vNormalizedPoints=T*vKeys
+*/
 void Initializer::Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, cv::Mat &T)
 {
     float meanX = 0;
