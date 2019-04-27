@@ -51,8 +51,8 @@ public:
     * @param vMatches12 orbmatcher计算的初匹配
     * @param R21
     * @param t21
-    * @param vP3D
-    * @param vbTriangulated 
+    * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
+    * @param vbTriangulated  初始化成功后，匹配点中三角化投影成功的情况
     */
     // Computes in parallel a fundamental matrix and a homography
     // Selects a model and tries to recover the motion and the structure from motion
@@ -64,12 +64,18 @@ private:
 
 
     /**
-    * 计算homograpy及其得分
+    * 计算单应矩阵及其得分
     * @param vbMatchesInliers 匹配点中哪些可以通过H21重投影成功
     * @param score 输出H21得分
+    * @param H21 输出H21
     */
     void FindHomography(vector<bool> &vbMatchesInliers, float &score, cv::Mat &H21);
-    // 计算fundamental及其得分
+    /**
+    * 计算基础矩阵及其得分
+    * @param vbMatchesInliers 匹配点中哪些可以通过H21重投影成功
+    * @param score 输出F21得分
+    * @param H21 输出F21
+    */
     void FindFundamental(vector<bool> &vbInliers, float &score, cv::Mat &F21);
     //视觉slam十四讲P147,7.3.3.单应矩阵
     //通过vP1，vP2求得单应矩阵并返回
@@ -88,7 +94,9 @@ private:
 
     /**
     * 计算基础得分，判断哪些匹配点重投影成功
+    * @param
     * @param vbMatchesInliers 针对输入的单应矩阵F，匹配点重投影成功情况
+    * @param
     * @return 基础矩阵得分
     */
     float CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesInliers, float sigma);
@@ -103,8 +111,8 @@ private:
     * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
     * @param vbTriangulated 匹配点中哪些可以通过F21重投影成功
     * @param minParallax 设置的最小视差角余弦值参数，输出Rt模型的视差角小于此值则返回失败
-    * @param minTriangulated 匹配点中H21重投影成功的个数如果小于此值，返回失败
-    * @return 通过输入的H21计算Rt是否成功
+    * @param minTriangulated 匹配点中F21重投影成功的个数如果小于此值，返回失败
+    * @return 通过输入的F21计算Rt是否成功
     */
     bool ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv::Mat &K,
                       cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated);
@@ -145,7 +153,7 @@ private:
     */
     void Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2f> &vNormalizedPoints, cv::Mat &T);
 
-    /**
+    /**计算在输入Rt下，匹配点三角化重投影成功的数量
     * @param vMatches12 orbmatcher计算的初匹配
     * @param vbInliers 匹配点中哪些可以通过H或者F重投影成功
     * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
@@ -157,7 +165,13 @@ private:
     int CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::KeyPoint> &vKeys1, const vector<cv::KeyPoint> &vKeys2,
                        const vector<Match> &vMatches12, vector<bool> &vbInliers,
                        const cv::Mat &K, vector<cv::Point3f> &vP3D, float th2, vector<bool> &vbGood, float &parallax);
-
+    
+    /**将本质矩阵分解成Rt,有四种模型
+    * @param E 
+    * @param R1 输出其中一种R
+    * @param R2 输出其中一种R
+    * @param t 输出t
+    */
     void DecomposeE(const cv::Mat &E, cv::Mat &R1, cv::Mat &R2, cv::Mat &t);
 
 
@@ -174,10 +188,12 @@ private:
     vector<bool> mvbMatched1;
 
     // Calibration
+    //内参
     cv::Mat mK;
 
     // Standard Deviation and Variance
-    //在CheckFundamental和CheckHomography计算F和H得分的时候有用到的参数
+    //mSigma在CheckFundamental和CheckHomography计算F和H得分的时候有用到的参数，以及判断匹配点通过H或者F重投影是否成功的参数
+    //mSigma2在checkRt中判断匹配点三角重投影是否成功的一个参数
     float mSigma, mSigma2;
 
     // Ransac max iterations

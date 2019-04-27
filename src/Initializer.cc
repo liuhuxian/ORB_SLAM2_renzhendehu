@@ -228,7 +228,8 @@ void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, 
 
 	//转换成归一化前特征点对应的基础矩阵
         F21i = T2t*Fn*T1;
-
+	//在参数 mSigma下，能够通过F21li，
+	//重投影成功的点有哪些，并返回分数
         currentScore = CheckFundamental(F21i, vbCurrentInliers, mSigma);
 
         if(currentScore>score)
@@ -355,7 +356,7 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
 
     float score = 0;
 
-    //判断重投影是否成功的阈值
+    //判断通过单应矩阵重投影是否成功的阈值
     const float th = 5.991;
 
     const float invSigmaSquare = 1.0/(sigma*sigma);
@@ -501,6 +502,7 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
                             cv::Mat &R21, cv::Mat &t21, vector<cv::Point3f> &vP3D, vector<bool> &vbTriangulated, float minParallax, int minTriangulated)
 {
     int N=0;
+    //匹配点中
     for(size_t i=0, iend = vbMatchesInliers.size() ; i<iend; i++)
         if(vbMatchesInliers[i])
             N++;
@@ -544,6 +546,8 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
         nsimilar++;
 
     // If there is not a clear winner or not enough triangulated points reject initialization
+    //nsimilar>1表明没有哪个模型明显胜出
+    //匹配点三角化重投影成功数过少
     if(maxGood<nMinGood || nsimilar>1)
     {
         return false;
@@ -552,6 +556,7 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
     // If best reconstruction has enough parallax initialize
     if(maxGood==nGood1)
     {
+	//如果模型一对应的视差角大于最小值
         if(parallax1>minParallax)
         {
             vP3D = vP3D1;
@@ -739,7 +744,7 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
         vector<cv::Point3f> vP3Di;
         vector<bool> vbTriangulatedi;
 	
-	
+	//计算在输入Rt下，匹配点三角化重投影成功的数量
         int nGood = CheckRT(vR[i],vt[i],mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K,vP3Di, 4.0*mSigma2, vbTriangulatedi, parallaxi);
 
         if(nGood>bestGood)
@@ -977,6 +982,7 @@ int Initializer::CheckRT(const cv::Mat &R, const cv::Mat &t, const vector<cv::Ke
 
     return nGood;
 }
+
 
 void Initializer::DecomposeE(const cv::Mat &E, cv::Mat &R1, cv::Mat &R2, cv::Mat &t)
 {

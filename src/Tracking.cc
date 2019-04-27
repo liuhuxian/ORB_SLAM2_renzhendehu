@@ -628,10 +628,12 @@ void Tracking::MonocularInitialization()
         //开始要计算位姿R，t了！！
         cv::Mat Rcw; // Current Camera Rotation
         cv::Mat tcw; // Current Camera Translation
+        //初始化成功后，匹配点中三角化投影成功的情况
         vector<bool> vbTriangulated; // Triangulated Correspondences (mvIniMatches)
 
         if(mpInitializer->Initialize(mCurrentFrame, mvIniMatches, Rcw, tcw, mvIniP3D, vbTriangulated))
         {
+	    //根据vbTriangulated中特征点三角化投影成功的情况，去除一些匹配点
             for(size_t i=0, iend=mvIniMatches.size(); i<iend;i++)
             {
                 if(mvIniMatches[i]>=0 && !vbTriangulated[i])
@@ -642,10 +644,12 @@ void Tracking::MonocularInitialization()
             }
 
             // Set Frame Poses
+            //初始化mInitialFrame的位姿
             mInitialFrame.SetPose(cv::Mat::eye(4,4,CV_32F));
             cv::Mat Tcw = cv::Mat::eye(4,4,CV_32F);
             Rcw.copyTo(Tcw.rowRange(0,3).colRange(0,3));
             tcw.copyTo(Tcw.rowRange(0,3).col(3));
+	    //将mpInitializer->Initialize算出的R和t拷贝到当前帧mCurrentFrame的位姿
             mCurrentFrame.SetPose(Tcw);
 
             CreateInitialMapMonocular();
@@ -653,13 +657,14 @@ void Tracking::MonocularInitialization()
     }
 }
 
-void Tracking::CreateInitialMapMonocular()
+void Tracking::	CreateInitialMapMonocular()
 {
     // Create KeyFrames
     KeyFrame* pKFini = new KeyFrame(mInitialFrame,mpMap,mpKeyFrameDB);
     KeyFrame* pKFcur = new KeyFrame(mCurrentFrame,mpMap,mpKeyFrameDB);
 
 
+    //计算关键帧的词袋bow和featurevector
     pKFini->ComputeBoW();
     pKFcur->ComputeBoW();
 
@@ -668,6 +673,7 @@ void Tracking::CreateInitialMapMonocular()
     mpMap->AddKeyFrame(pKFcur);
 
     // Create MapPoints and asscoiate to keyframes
+    //遍历每一个初始化时得到的特征点匹配,将三角化重投影成功的特征点转化为mappoint
     for(size_t i=0; i<mvIniMatches.size();i++)
     {
         if(mvIniMatches[i]<0)
@@ -676,32 +682,42 @@ void Tracking::CreateInitialMapMonocular()
         //Create MapPoint.
         cv::Mat worldPos(mvIniP3D[i]);
 
+	//新建mappoint对象，注意mappoint的参考帧是pKFcur
         MapPoint* pMP = new MapPoint(worldPos,pKFcur,mpMap);
 
+	//给关键帧添加mappoint，让keyframe知道自己可以看到哪些mappoint
         pKFini->AddMapPoint(pMP,i);
         pKFcur->AddMapPoint(pMP,mvIniMatches[i]);
-
+	
+	//让pMP知道自己可以被pKFini，pKFcur看到
         pMP->AddObservation(pKFini,i);
         pMP->AddObservation(pKFcur,mvIniMatches[i]);
 
+	//找出最能代表此mappoint的描述子
         pMP->ComputeDistinctiveDescriptors();
+	//更新此mappoint参考帧光心到mappoint平均观测方向以及观测距离范围
         pMP->UpdateNormalAndDepth();
 
         //Fill Current Frame structure
+	//更新当前帧Frame能看到哪些mappoint
         mCurrentFrame.mvpMapPoints[mvIniMatches[i]] = pMP;
+	//标记当前帧的特征点哪些是Outlier
         mCurrentFrame.mvbOutlier[mvIniMatches[i]] = false;
 
         //Add to Map
+	//向map添加mappoint
         mpMap->AddMapPoint(pMP);
     }
 
     // Update Connections
+    //更新此关键帧和其他关键帧的共视图和生成树spanningtree
     pKFini->UpdateConnections();
     pKFcur->UpdateConnections();
 
     // Bundle Adjustment
     cout << "New Map created with " << mpMap->MapPointsInMap() << " points" << endl;
 
+    //进行一次全局BA
     Optimizer::GlobalBundleAdjustemnt(mpMap,20);
 
     // Set median depth to 1
