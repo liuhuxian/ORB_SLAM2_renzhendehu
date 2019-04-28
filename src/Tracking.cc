@@ -293,6 +293,7 @@ void Tracking::Track()
             return;
     }
     else
+    //初始化成功后
     {
         // System is initialized. Track Frame.
         bool bOK;
@@ -306,7 +307,7 @@ void Tracking::Track()
             if(mState==OK)
             {
                 // Local Mapping might have changed some MapPoints tracked in last frame
-		//首先检测上一帧中的所有地图点中有没有可以代替该地图点的其他地图点，如果有则将两地图点融合为一个地图点（用替代点替代当前帧中的地图点）
+		//lastframe中可以看到的mappoint替换为自身储存的备胎mappoint点mpReplaced，也就是更新mappoint的信息
                 CheckReplacedInLastFrame();
 
                 if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)
@@ -577,6 +578,7 @@ void Tracking::MonocularInitialization()
 	//如果如果当前帧特征点数量大于100
         if(mCurrentFrame.mvKeys.size()>100)
         {
+	    //设置mInitialFrame，和mLastFrame
             mInitialFrame = Frame(mCurrentFrame);
             mLastFrame = Frame(mCurrentFrame);
             mvbPrevMatched.resize(mCurrentFrame.mvKeysUn.size());
@@ -645,6 +647,7 @@ void Tracking::MonocularInitialization()
 
             // Set Frame Poses
             //初始化mInitialFrame的位姿
+            //将mInitialFrame位姿设置为世界坐标
             mInitialFrame.SetPose(cv::Mat::eye(4,4,CV_32F));
             cv::Mat Tcw = cv::Mat::eye(4,4,CV_32F);
             Rcw.copyTo(Tcw.rowRange(0,3).colRange(0,3));
@@ -657,7 +660,7 @@ void Tracking::MonocularInitialization()
     }
 }
 
-void Tracking::	CreateInitialMapMonocular()
+void Tracking::CreateInitialMapMonocular()
 {
     // Create KeyFrames
     KeyFrame* pKFini = new KeyFrame(mInitialFrame,mpMap,mpKeyFrameDB);
@@ -722,6 +725,7 @@ void Tracking::	CreateInitialMapMonocular()
 
     // Set median depth to 1
     float medianDepth = pKFini->ComputeSceneMedianDepth(2);
+    //
     float invMedianDepth = 1.0f/medianDepth;
 
     if(medianDepth<0 || pKFcur->TrackedMapPoints(1)<100)
@@ -747,6 +751,7 @@ void Tracking::	CreateInitialMapMonocular()
         }
     }
 
+    //向mpLocalMapper插入关键帧pKFini，pKFcur
     mpLocalMapper->InsertKeyFrame(pKFini);
     mpLocalMapper->InsertKeyFrame(pKFcur);
 
@@ -773,6 +778,7 @@ void Tracking::	CreateInitialMapMonocular()
 
 void Tracking::CheckReplacedInLastFrame()
 {
+    //遍历上一帧所有特征点
     for(int i =0; i<mLastFrame.N; i++)
     {
         MapPoint* pMP = mLastFrame.mvpMapPoints[i];
@@ -848,6 +854,7 @@ void Tracking::UpdateLastFrame()
     // We sort points according to their measured depth by the stereo/RGB-D sensor
     vector<pair<float,int> > vDepthIdx;
     vDepthIdx.reserve(mLastFrame.N);
+    //将深度z>0筛选出来放入vDepthIdx
     for(int i=0; i<mLastFrame.N;i++)
     {
         float z = mLastFrame.mvDepth[i];
@@ -864,6 +871,7 @@ void Tracking::UpdateLastFrame()
 
     // We insert all close points (depth<mThDepth)
     // If less than 100 close points, we insert the 100 closest ones.
+    //只
     int nPoints = 0;
     for(size_t j=0; j<vDepthIdx.size();j++)
     {
@@ -872,6 +880,7 @@ void Tracking::UpdateLastFrame()
         bool bCreateNew = false;
 
         MapPoint* pMP = mLastFrame.mvpMapPoints[i];
+	//如果mLastFrame的第i个特征点有对应的mappoint
         if(!pMP)
             bCreateNew = true;
         else if(pMP->Observations()<1)

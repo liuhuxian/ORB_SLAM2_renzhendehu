@@ -33,6 +33,7 @@ namespace ORB_SLAM2
 class Converter
 {
 public:
+    //将描述子向量化
     static std::vector<cv::Mat> toDescriptorVector(const cv::Mat &Descriptors);
 
     static g2o::SE3Quat toSE3Quat(const cv::Mat &cvT);

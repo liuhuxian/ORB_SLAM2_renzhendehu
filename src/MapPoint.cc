@@ -98,10 +98,12 @@ KeyFrame* MapPoint::GetReferenceKeyFrame()
 void MapPoint::AddObservation(KeyFrame* pKF, size_t idx)
 {
     unique_lock<mutex> lock(mMutexFeatures);
+    //查看pKF是否出现过
     if(mObservations.count(pKF))
         return;
     mObservations[pKF]=idx;
 
+    //如果是双目模式
     if(pKF->mvuRight[idx]>=0)
         nObs+=2;
     else
@@ -258,6 +260,8 @@ void MapPoint::ComputeDistinctiveDescriptors()
 
     vDescriptors.reserve(observations.size());
 
+    //遍历此mappoint所有能够被观察的关键帧
+    //然后将mappoint在这些关键帧里对应的特征点的描述子放入vDescriptors
     for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
     {
         KeyFrame* pKF = mit->first;
@@ -270,6 +274,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
         return;
 
     // Compute distances between them
+    //计算vDescriptors中描述子间的距离
     const size_t N = vDescriptors.size();
 
     float Distances[N][N];
@@ -291,8 +296,10 @@ void MapPoint::ComputeDistinctiveDescriptors()
     {
         vector<int> vDists(Distances[i],Distances[i]+N);
         sort(vDists.begin(),vDists.end());
+	// 获得中值
         int median = vDists[0.5*(N-1)];
-
+	
+	// 寻找最小的中值
         if(median<BestMedian)
         {
             BestMedian = median;
@@ -347,25 +354,34 @@ void MapPoint::UpdateNormalAndDepth()
 
     cv::Mat normal = cv::Mat::zeros(3,1,CV_32F);
     int n=0;
+    //遍历此mappoint所有能够被观察的关键帧
     for(map<KeyFrame*,size_t>::iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
     {
         KeyFrame* pKF = mit->first;
         cv::Mat Owi = pKF->GetCameraCenter();
+	//光心到mappoint的向量
         cv::Mat normali = mWorldPos - Owi;
+	// 对所有关键帧对该点的观测方向归一化为单位向量进行求和
         normal = normal + normali/cv::norm(normali);
         n++;
     }
 
+    // 参考关键帧相机指向3D点的向量
     cv::Mat PC = Pos - pRefKF->GetCameraCenter();
+    // 该点到参考关键帧相机的距离
     const float dist = cv::norm(PC);
+    //根据mappoint的参考帧对应的特征点，更新mappoint的一些特征点信息
     const int level = pRefKF->mvKeysUn[observations[pRefKF]].octave;
     const float levelScaleFactor =  pRefKF->mvScaleFactors[level];
     const int nLevels = pRefKF->mnScaleLevels;
 
     {
         unique_lock<mutex> lock3(mMutexPos);
+	// 观测到该点的距离上限
         mfMaxDistance = dist*levelScaleFactor;
+	// 观测到该点的距离下限
         mfMinDistance = mfMaxDistance/pRefKF->mvScaleFactors[nLevels-1];
+	// 获得平均的观测方向
         mNormalVector = normal/n;
     }
 }

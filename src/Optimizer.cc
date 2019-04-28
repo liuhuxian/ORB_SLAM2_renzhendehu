@@ -68,6 +68,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     long unsigned int maxKFid = 0;
 
     // Set KeyFrame vertices
+    //遍历提供的所有关键帧，向g2o中添加节点，为keyframe里的相机位姿
     for(size_t i=0; i<vpKFs.size(); i++)
     {
         KeyFrame* pKF = vpKFs[i];
@@ -86,15 +87,19 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     const float thHuber3D = sqrt(7.815);
 
     // Set MapPoint vertices
+    //遍历提供的所有mappoint，向g2o添加节点
     for(size_t i=0; i<vpMP.size(); i++)
     {
         MapPoint* pMP = vpMP[i];
         if(pMP->isBad())
             continue;
         g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
+	//设定节点的初始值
         vPoint->setEstimate(Converter::toVector3d(pMP->GetWorldPos()));
+	//注意这里和位姿顶点的ID向匹配
         const int id = pMP->mnId+maxKFid+1;
         vPoint->setId(id);
+	//设置该点在解方程时进行schur消元，就是是否利用稀疏化加速
         vPoint->setMarginalized(true);
         optimizer.addVertex(vPoint);
 
@@ -102,6 +107,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
         int nEdges = 0;
         //SET EDGES
+	//遍历此mappoint能被看到的所有keyframe，向优化器添加误差边
         for(map<KeyFrame*,size_t>::const_iterator mit=observations.begin(); mit!=observations.end(); mit++)
         {
 
@@ -112,20 +118,24 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
             nEdges++;
 
             const cv::KeyPoint &kpUn = pKF->mvKeysUn[mit->second];
-
+	    //开始添加边了
+	    // 单目或RGBD相机
             if(pKF->mvuRight[mit->second]<0)
             {
                 Eigen::Matrix<double,2,1> obs;
                 obs << kpUn.pt.x, kpUn.pt.y;
 
                 g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
-
+		//添加和这条边相连的mappoint顶点
                 e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
+		//添加和这条边相连的位姿顶点
                 e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKF->mnId)));
                 e->setMeasurement(obs);
                 const float &invSigma2 = pKF->mvInvLevelSigma2[kpUn.octave];
+		//根据mappoint所在高斯金字塔尺度设置信息矩阵
                 e->setInformation(Eigen::Matrix2d::Identity()*invSigma2);
 
+		//如果需要开启核函数
                 if(bRobust)
                 {
                     g2o::RobustKernelHuber* rk = new g2o::RobustKernelHuber;
@@ -140,6 +150,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
                 optimizer.addEdge(e);
             }
+            //双目
             else
             {
                 Eigen::Matrix<double,3,1> obs;

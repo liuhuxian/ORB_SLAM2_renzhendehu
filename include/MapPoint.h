@@ -49,8 +49,14 @@ public:
     KeyFrame* GetReferenceKeyFrame();
 
     std::map<KeyFrame*,size_t> GetObservations();
+    //返回此mappoint可以被keyframe看到的数量
     int Observations();
-
+    
+    //让mappoint知道自己可以被哪些keyframe看到
+    /**
+     *@param pKF mappoint可以被看到的keyframe
+     *@param idx mappoint自己是对应pKF中哪个特征点的序号
+     */ 
     void AddObservation(KeyFrame* pKF,size_t idx);
     void EraseObservation(KeyFrame* pKF);
 
@@ -70,10 +76,12 @@ public:
         return mnFound;
     }
 
+    //在此mappoint能被看到的特征点中找出最能代表此mappoint的描述子
     void ComputeDistinctiveDescriptors();
 
     cv::Mat GetDescriptor();
 
+    //更新此mappoint参考帧光心到mappoint平均观测方向以及观测距离范围
     void UpdateNormalAndDepth();
 
     float GetMinDistanceInvariance();
@@ -86,6 +94,7 @@ public:
     static long unsigned int nNextId;
     long int mnFirstKFid;
     long int mnFirstFrame;
+    //此mappoint可以被keyframe看到的数量
     int nObs;
 
     // Variables used by the tracking
@@ -115,12 +124,15 @@ public:
 protected:    
 
      // Position in absolute coordinates
+     //此mappoint在世界坐标系中的坐标
      cv::Mat mWorldPos;
 
      // Keyframes observing the point and associated index in keyframe
+     //记录此MapPoint对应的是KeyFrame中哪个特征点
      std::map<KeyFrame*,size_t> mObservations;
 
      // Mean viewing direction
+     // 平均的观测方向
      cv::Mat mNormalVector;
 
      // Best descriptor to fast matching
@@ -135,10 +147,13 @@ protected:
 
      // Bad flag (we do not currently erase MapPoint from memory)
      bool mbBad;
+     //将要替代此mappoint的mappoint
      MapPoint* mpReplaced;
 
      // Scale invariance distances
+     // 观测到该点的距离下限
      float mfMinDistance;
+     // 观测到该点的距离上限
      float mfMaxDistance;
 
      Map* mpMap;

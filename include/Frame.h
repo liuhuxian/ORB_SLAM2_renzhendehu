@@ -164,6 +164,7 @@ public:
     cv::Mat mDescriptors, mDescriptorsRight;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
+    //大小是mvKeys大小，表示mappoint和此帧特征点的联系
     std::vector<MapPoint*> mvpMapPoints;
 
     // Flag to identify outlier associations.
@@ -191,6 +192,7 @@ public:
 
     // Scale pyramid info.
     //从orbextractor拷贝的关于高斯金字塔的信息
+    //高斯金字塔层数
     int mnScaleLevels;
     float mfScaleFactor;
     float mfLogScaleFactor;

@@ -121,7 +121,7 @@ protected:
     //Patch圆的u轴方向最大坐标
     std::vector<int> umax;
 
-    //每层的相对于原始图像的缩放比例
+    //每层的相对于原始图像的缩放比例,其值单调递增
     std::vector<float> mvScaleFactor;
     //mvScaleFactor的倒数
     std::vector<float> mvInvScaleFactor;   

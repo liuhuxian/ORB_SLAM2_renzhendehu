@@ -37,11 +37,23 @@ class LoopClosing;
 class Optimizer
 {
 public:
+    /**通过优化vpKF的位姿，vpMP等优化变量，使得vpMP通过vpKF里的位姿投影到vpKF的二维坐标的重投影误差最小
+     * @param vpKF 位姿优化变量相关的关键帧
+     * @param vpMP 空间点优化变量相关的mappoint
+     * @param nIterations 使用G2o优化次数
+     * @param pbStopFlag  是否强制暂停
+     * @param nLoopKF
+     * @param bRobust  是否使用核函数
+     */
     void static BundleAdjustment(const std::vector<KeyFrame*> &vpKF, const std::vector<MapPoint*> &vpMP,
                                  int nIterations = 5, bool *pbStopFlag=NULL, const unsigned long nLoopKF=0,
                                  const bool bRobust = true);
+    /**调用BundleAdjustment()，对map中所有keyframe和mappoint进行BA
+     */
     void static GlobalBundleAdjustemnt(Map* pMap, int nIterations=5, bool *pbStopFlag=NULL,
                                        const unsigned long nLoopKF=0, const bool bRobust = true);
+    /**
+     */
     void static LocalBundleAdjustment(KeyFrame* pKF, bool *pbStopFlag, Map *pMap);
     int static PoseOptimization(Frame* pFrame);
 

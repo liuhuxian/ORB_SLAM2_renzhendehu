@@ -98,10 +98,11 @@ public:
 
     // Initialization Variables (Monocular)
     std::vector<int> mvIniLastMatches;
-    //由ORBmatcher计算的初始匹配特征点
+    //初始化时得到的特征点匹配，大小是mInitialFrame的特征点数量，其值是当前帧特征点序号
     std::vector<int> mvIniMatches;
-    //F1中待匹配的特征点
+    //mInitialFrame中待匹配的特征点
     std::vector<cv::Point2f> mvbPrevMatched;
+    //初始化时三角化投影成功的匹配点对应的3d点
     std::vector<cv::Point3f> mvIniP3D;
     Frame mInitialFrame;
 
@@ -128,6 +129,7 @@ protected:
     // Map initialization for monocular
     //单目初始化
     void MonocularInitialization();
+    //单目模式下初始化后，开始建图
     void CreateInitialMapMonocular();
 
     void CheckReplacedInLastFrame();
@@ -205,8 +207,10 @@ protected:
     int mnMatchesInliers;
 
     //Last Frame, KeyFrame and Relocalisation Info
+    //最近新插入的keyframe
     KeyFrame* mpLastKeyFrame;
     Frame mLastFrame;
+    //mpLastKeyFrame的FrameID
     unsigned int mnLastKeyFrameId;
     unsigned int mnLastRelocFrameId;
 
@@ -216,6 +220,7 @@ protected:
     //Color order (true RGB, false BGR, ignored if grayscale)
     bool mbRGB;
 
+    //在UpdateLastFrame()更新
     list<MapPoint*> mlpTemporalPoints;
 };
 

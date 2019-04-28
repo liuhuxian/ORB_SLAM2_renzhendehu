@@ -37,7 +37,7 @@ public:
 
     /**
     * Initializer构造函数
-    * @param ReferenceFrame 输入Initializer参考帧
+    * @param ReferenceFrame 输入Initializer的参考帧
     * @param sigma  //计算单应矩阵H和基础矩阵得分F时候一个参数
     * @param iterations  RANSAC迭代次数
     */
@@ -52,7 +52,7 @@ public:
     * @param R21
     * @param t21
     * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
-    * @param vbTriangulated  初始化成功后，匹配点中三角化投影成功的情况
+    * @param vbTriangulated  其大小为vKeys1大小，表示初始化成功后，特征点中三角化投影成功的情况
     */
     // Computes in parallel a fundamental matrix and a homography
     // Selects a model and tries to recover the motion and the structure from motion
@@ -109,7 +109,7 @@ private:
     * @param R21 输出
     * @param t21 输出
     * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
-    * @param vbTriangulated 匹配点中哪些可以通过F21重投影成功
+    * @param vbTriangulated 其大小为vKeys1大小，特征点中哪些可以通过F21重投影成功
     * @param minParallax 设置的最小视差角余弦值参数，输出Rt模型的视差角小于此值则返回失败
     * @param minTriangulated 匹配点中F21重投影成功的个数如果小于此值，返回失败
     * @return 通过输入的F21计算Rt是否成功
@@ -125,7 +125,7 @@ private:
     * @param R21 输出
     * @param t21 输出
     * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
-    * @param vbTriangulated 匹配点中哪些可以通过H21重投影成功
+    * @param vbTriangulated 其大小为vKeys1大小，特征点中哪些可以通过H21重投影成功
     * @param minParallax 设置的最小视差角余弦值参数，输出Rt模型的视差角小于此值则返回失败
     * @param minTriangulated 匹配点中H21重投影成功的个数如果小于此值，返回失败
     * @return 通过输入的H21计算Rt是否成功
@@ -158,7 +158,7 @@ private:
     * @param vbInliers 匹配点中哪些可以通过H或者F重投影成功
     * @param vP3D 其大小为vKeys1大小，表示三角化重投影成功的匹配点的3d点在相机1下的坐标
     * @param th2 根据三角化重投影误差判断匹配点是否重投影成功的阈值
-    * @param vbGood 输出：储存匹配点中哪些三角化重投影成功
+    * @param vbGood 输出：特征点哪些三角化重投影成功
     * @param parallax 三角化重投影成功匹配点的视差角
     * @return 匹配点三角化重投影成功的数量
     */

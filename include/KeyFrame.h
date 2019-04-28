@@ -58,12 +58,22 @@ public:
     void ComputeBoW();
 
     // Covisibility graph functions
+    /**在共视图Covisibility graph中添加边
+     * @param pKF 具有共视关系的其他关键帧
+     * @param weight 和pKF共视的mappoint数量
+     */
     void AddConnection(KeyFrame* pKF, const int &weight);
     void EraseConnection(KeyFrame* pKF);
+    
+    
+    //更新共视图Covisibility graph和spanningtree
     void UpdateConnections();
+    //更新共视图
     void UpdateBestCovisibles();
     std::set<KeyFrame *> GetConnectedKeyFrames();
+    //返回共视图中与此节点连接的节点（即关键帧）
     std::vector<KeyFrame* > GetVectorCovisibleKeyFrames();
+    //返回共视图中与此节点连接的权值前N的节点
     std::vector<KeyFrame*> GetBestCovisibilityKeyFrames(const int &N);
     std::vector<KeyFrame*> GetCovisiblesByWeight(const int &w);
     int GetWeight(KeyFrame* pKF);
@@ -81,11 +91,16 @@ public:
     std::set<KeyFrame*> GetLoopEdges();
 
     // MapPoint observation functions
+    /**向关键帧添加mappoint，让keyframe知道自己可以看到哪些mappoint
+     * @param pMP 添加的mappoint
+     * @param idx mappoint在此帧对应的特征点的序号
+     */
     void AddMapPoint(MapPoint* pMP, const size_t &idx);
     void EraseMapPointMatch(const size_t &idx);
     void EraseMapPointMatch(MapPoint* pMP);
     void ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP);
     std::set<MapPoint*> GetMapPoints();
+    //外部接口，此keyframe可以看到哪些mappoint
     std::vector<MapPoint*> GetMapPointMatches();
     int TrackedMapPoints(const int &minObs);
     MapPoint* GetMapPoint(const size_t &idx);
@@ -106,6 +121,7 @@ public:
     bool isBad();
 
     // Compute Scene Depth (q=2 median). Used in monocular.
+    //返回mappoint在此帧的深度中位数
     float ComputeSceneMedianDepth(const int q);
 
     static bool weightComp( int a, int b){
@@ -120,7 +136,9 @@ public:
     // The following variables are accesed from only 1 thread or never change (no mutex needed).
 public:
 
+    //下一个keyframe的序号
     static long unsigned int nNextId;
+    //当前keyframe的序号
     long unsigned int mnId;
     const long unsigned int mnFrameId;
 
@@ -200,6 +218,7 @@ protected:
     cv::Mat Cw; // Stereo middel point. Only for visualization
 
     // MapPoints associated to keypoints
+    //此keyframe可以看到哪些mappoint
     std::vector<MapPoint*> mvpMapPoints;
 
     // BoW
@@ -207,14 +226,21 @@ protected:
     ORBVocabulary* mpORBvocabulary;
 
     // Grid over the image to speed up feature matching
+    //储存这各个窗格的特征点在mvKeysUn中的序号
     std::vector< std::vector <std::vector<size_t> > > mGrid;
 
+    //与此关键帧其他关键帧的共视关系及其mappoint共视数量
     std::map<KeyFrame*,int> mConnectedKeyFrameWeights;
+    
+    //与此关键帧具有联结关系的关键帧，其顺序按照共视的mappoint数量递减排序
+    //这个其实就是共视图covisibility graph
     std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;
+    //mvpOrderedConnectedKeyFrames中共视的mappoint数量，也就是共视图covisibilitygraph权重，递减排列
     std::vector<int> mvOrderedWeights;
 
     // Spanning Tree and Loop Edges
     bool mbFirstConnection;
+    
     KeyFrame* mpParent;
     std::set<KeyFrame*> mspChildrens;
     std::set<KeyFrame*> mspLoopEdges;
