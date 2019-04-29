@@ -55,6 +55,15 @@ public:
     /**
      */
     void static LocalBundleAdjustment(KeyFrame* pKF, bool *pbStopFlag, Map *pMap);
+    
+    /**
+    * 3D-2D 最小化重投影误差 e = (u,v) - project(Tcw*Pw) \n
+    * 只优化Frame的Tcw，不优化MapPoints的坐标
+    * 更新pFrame->mvbOutlier
+    * 更新了pFrame的位姿，pFrame->SetPose(pose);
+    * @param   pFrame Frame
+    * @return  inliers数量
+    */
     int static PoseOptimization(Frame* pFrame);
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)

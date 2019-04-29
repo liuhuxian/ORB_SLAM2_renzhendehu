@@ -101,10 +101,12 @@ public:
     float mTrackProjX;
     float mTrackProjY;
     float mTrackProjXR;
+    //描述现在是否被tracking跟踪
     bool mbTrackInView;
     int mnTrackScaleLevel;
     float mTrackViewCos;
     long unsigned int mnTrackReferenceForFrame;
+    //上一次是被哪一帧看到
     long unsigned int mnLastFrameSeen;
 
     // Variables used by local mapping
@@ -114,7 +116,8 @@ public:
     // Variables used by loop closing
     long unsigned int mnLoopPointForKF;
     long unsigned int mnCorrectedByKF;
-    long unsigned int mnCorrectedReference;    
+    long unsigned int mnCorrectedReference; 
+    //global BA的优化变量mappoint结果
     cv::Mat mPosGBA;
     long unsigned int mnBAGlobalForKF;
 

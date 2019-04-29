@@ -307,7 +307,7 @@ void Tracking::Track()
             if(mState==OK)
             {
                 // Local Mapping might have changed some MapPoints tracked in last frame
-		//lastframe中可以看到的mappoint替换为自身储存的备胎mappoint点mpReplaced，也就是更新mappoint的信息
+		//lastframe中可以看到的mappoint替换为lastframe储存的备胎mappoint点mpReplaced，也就是更新mappoint
                 CheckReplacedInLastFrame();
 
                 if(mVelocity.empty() || mCurrentFrame.mnId<mnLastRelocFrameId+2)
@@ -704,7 +704,7 @@ void Tracking::CreateInitialMapMonocular()
         //Fill Current Frame structure
 	//更新当前帧Frame能看到哪些mappoint
         mCurrentFrame.mvpMapPoints[mvIniMatches[i]] = pMP;
-	//标记当前帧的特征点哪些是Outlier
+	//标记当前帧的特征点不是是Outlier
         mCurrentFrame.mvbOutlier[mvIniMatches[i]] = false;
 
         //Add to Map
@@ -916,6 +916,8 @@ bool Tracking::TrackWithMotionModel()
     // Create "visual odometry" points if in Localization Mode
     UpdateLastFrame();
 
+    
+    //根据Const Velocity Model(认为这两帧之间的相对运动和之前两帧间相对运动相同)估计当前帧的初略位姿
     mCurrentFrame.SetPose(mVelocity*mLastFrame.mTcw);
 
     fill(mCurrentFrame.mvpMapPoints.begin(),mCurrentFrame.mvpMapPoints.end(),static_cast<MapPoint*>(NULL));
@@ -926,6 +928,8 @@ bool Tracking::TrackWithMotionModel()
         th=15;
     else
         th=7;
+    
+    // 步骤2：对上一帧的MapPoints进行跟踪，看上一帧能看到的mappoint对应的当前帧哪些特征点
     int nmatches = matcher.SearchByProjection(mCurrentFrame,mLastFrame,th,mSensor==System::MONOCULAR);
 
     // If few matches, uses a wider window search
@@ -939,9 +943,11 @@ bool Tracking::TrackWithMotionModel()
         return false;
 
     // Optimize frame pose with all matches
+    // 步骤3：优化位姿
     Optimizer::PoseOptimization(&mCurrentFrame);
 
     // Discard outliers
+    //上一步更新了mCurrentFrame的outlier，需要将mCurrentFrame的mvpMapPoints更新
     int nmatchesMap = 0;
     for(int i =0; i<mCurrentFrame.N; i++)
     {
@@ -957,6 +963,7 @@ bool Tracking::TrackWithMotionModel()
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
                 nmatches--;
             }
+            //如果当前帧可以看到的mappoint同时能被其他keyframe看到
             else if(mCurrentFrame.mvpMapPoints[i]->Observations()>0)
                 nmatchesMap++;
         }

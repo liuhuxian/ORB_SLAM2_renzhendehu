@@ -53,6 +53,8 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     vbNotIncludedMP.resize(vpMP.size());
 
     g2o::SparseOptimizer optimizer;
+    //typedef BlockSolver< BlockSolverTraits<6, 3> > BlockSolver_6_3;
+    //这表明误差变量为6维，误差值为3维
     g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
 
     linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>();
@@ -68,39 +70,48 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     long unsigned int maxKFid = 0;
 
     // Set KeyFrame vertices
-    //遍历提供的所有关键帧，向g2o中添加节点，为keyframe里的相机位姿
+    //遍历提供的所有关键帧，向g2o中添加顶点误差变量，为keyframe里的相机位姿
     for(size_t i=0; i<vpKFs.size(); i++)
     {
         KeyFrame* pKF = vpKFs[i];
         if(pKF->isBad())
             continue;
+	//节点类型为g2o::VertexSE3Expmap
         g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
+	//设置位姿顶点误差变量的初始值
         vSE3->setEstimate(Converter::toSE3Quat(pKF->GetPose()));
+	//这个顶点的ID
         vSE3->setId(pKF->mnId);
+	//如果是第0帧，那么就不优化这个顶点误差变量
         vSE3->setFixed(pKF->mnId==0);
+	//将配置好的顶点添加到optimizer
         optimizer.addVertex(vSE3);
+	//更新maxKFid
         if(pKF->mnId>maxKFid)
             maxKFid=pKF->mnId;
     }
 
+    //核函数相关参数
     const float thHuber2D = sqrt(5.99);
     const float thHuber3D = sqrt(7.815);
 
     // Set MapPoint vertices
-    //遍历提供的所有mappoint，向g2o添加节点
+    //遍历vpMP提供的所有mappoint，向g2o添加顶点误差变量
     for(size_t i=0; i<vpMP.size(); i++)
     {
         MapPoint* pMP = vpMP[i];
         if(pMP->isBad())
             continue;
+	//顶点类型为g2o::VertexSBAPointXYZ
         g2o::VertexSBAPointXYZ* vPoint = new g2o::VertexSBAPointXYZ();
-	//设定节点的初始值
+	//设定顶点的初始值
         vPoint->setEstimate(Converter::toVector3d(pMP->GetWorldPos()));
 	//注意这里和位姿顶点的ID向匹配
         const int id = pMP->mnId+maxKFid+1;
         vPoint->setId(id);
 	//设置该点在解方程时进行schur消元，就是是否利用稀疏化加速
         vPoint->setMarginalized(true);
+	//将配置好的顶点添加到optimizer
         optimizer.addVertex(vPoint);
 
        const map<KeyFrame*,size_t> observations = pMP->GetObservations();
@@ -125,8 +136,9 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
                 Eigen::Matrix<double,2,1> obs;
                 obs << kpUn.pt.x, kpUn.pt.y;
 
+		//边类型为g2o::EdgeSE3ProjectXYZ
                 g2o::EdgeSE3ProjectXYZ* e = new g2o::EdgeSE3ProjectXYZ();
-		//添加和这条边相连的mappoint顶点
+		//添加和这条边相连的mappoint顶点，0为边的ID
                 e->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id)));
 		//添加和这条边相连的位姿顶点
                 e->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(pKF->mnId)));
@@ -143,11 +155,13 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
                     rk->setDelta(thHuber2D);
                 }
 
+                //向边添加内参
                 e->fx = pKF->fx;
                 e->fy = pKF->fy;
                 e->cx = pKF->cx;
                 e->cy = pKF->cy;
-
+		
+		//添加边
                 optimizer.addEdge(e);
             }
             //双目
@@ -201,12 +215,15 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     // Recover optimized data
 
     //Keyframes
+    //遍历所有关键帧
     for(size_t i=0; i<vpKFs.size(); i++)
     {
         KeyFrame* pKF = vpKFs[i];
         if(pKF->isBad())
             continue;
+	//这里是确保数据类型正确
         g2o::VertexSE3Expmap* vSE3 = static_cast<g2o::VertexSE3Expmap*>(optimizer.vertex(pKF->mnId));
+	//取出优化变量vSE3的结果
         g2o::SE3Quat SE3quat = vSE3->estimate();
         if(nLoopKF==0)
         {
@@ -221,6 +238,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     }
 
     //Points
+    //遍历取出优化变量结果
     for(size_t i=0; i<vpMP.size(); i++)
     {
         if(vbNotIncludedMP[i])
@@ -230,6 +248,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
         if(pMP->isBad())
             continue;
+	//取出顶点优化变量g2o::VertexSBAPointXYZ结果
         g2o::VertexSBAPointXYZ* vPoint = static_cast<g2o::VertexSBAPointXYZ*>(optimizer.vertex(pMP->mnId+maxKFid+1));
 
         if(nLoopKF==0)
@@ -249,6 +268,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
 int Optimizer::PoseOptimization(Frame *pFrame)
 {
+    //这里请参考Optimizer::BundleAdjustment的注释
     g2o::SparseOptimizer optimizer;
     g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
 
@@ -262,6 +282,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     int nInitialCorrespondences=0;
 
     // Set Frame vertex
+    //将pFrame的位姿添加为顶点作为优化变量
     g2o::VertexSE3Expmap * vSE3 = new g2o::VertexSE3Expmap();
     vSE3->setEstimate(Converter::toSE3Quat(pFrame->mTcw));
     vSE3->setId(0);
@@ -288,15 +309,20 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     {
     unique_lock<mutex> lock(MapPoint::mGlobalMutex);
 
+    //遍历pFrame帧的所有特征点
     for(int i=0; i<N; i++)
     {
         MapPoint* pMP = pFrame->mvpMapPoints[i];
+	//如果此特征点有对应的mappoint
         if(pMP)
         {
             // Monocular observation
+	    //单目
             if(pFrame->mvuRight[i]<0)
             {
+		//记录添加了多少条边
                 nInitialCorrespondences++;
+		//先将这个特征点设置为不是Outlier，也就是初始化啦。
                 pFrame->mvbOutlier[i] = false;
 
                 Eigen::Matrix<double,2,1> obs;
@@ -371,12 +397,15 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     }
     }
 
-
+    //如果只添加了3条边
     if(nInitialCorrespondences<3)
         return 0;
 
     // We perform 4 optimizations, after each optimization we classify observation as inlier/outlier
     // At the next optimization, outliers are not included, but at the end they can be classified as inliers again.
+    //开始优化，总共优化四次，每次优化后，将观测分为outlier和inlier，outlier不参与下次优化
+    // 由于每次优化后是对所有的观测进行outlier和inlier判别，因此之前被判别为outlier有可能变成inlier，反之亦然
+    // 基于卡方检验计算出的阈值（假设测量有一个像素的偏差）
     const float chi2Mono[4]={5.991,5.991,5.991,5.991};
     const float chi2Stereo[4]={7.815,7.815,7.815, 7.815};
     const int its[4]={10,10,10,10};    
@@ -387,9 +416,11 @@ int Optimizer::PoseOptimization(Frame *pFrame)
 
         vSE3->setEstimate(Converter::toSE3Quat(pFrame->mTcw));
         optimizer.initializeOptimization(0);
+	//启动优化
         optimizer.optimize(its[it]);
 
         nBad=0;
+	//遍历单目模式的每条边
         for(size_t i=0, iend=vpEdgesMono.size(); i<iend; i++)
         {
             g2o::EdgeSE3ProjectXYZOnlyPose* e = vpEdgesMono[i];
@@ -418,13 +449,15 @@ int Optimizer::PoseOptimization(Frame *pFrame)
             if(it==2)
                 e->setRobustKernel(0);
         }
-
+	
+	//遍历双目模式的每条边
         for(size_t i=0, iend=vpEdgesStereo.size(); i<iend; i++)
         {
             g2o::EdgeStereoSE3ProjectXYZOnlyPose* e = vpEdgesStereo[i];
 
             const size_t idx = vnIndexEdgeStereo[i];
-
+	    
+	    //没懂
             if(pFrame->mvbOutlier[idx])
             {
                 e->computeError();
@@ -432,12 +465,14 @@ int Optimizer::PoseOptimization(Frame *pFrame)
 
             const float chi2 = e->chi2();
 
+	    //没懂
             if(chi2>chi2Stereo[it])
             {
                 pFrame->mvbOutlier[idx]=true;
                 e->setLevel(1);
                 nBad++;
             }
+            //没懂
             else
             {                
                 e->setLevel(0);

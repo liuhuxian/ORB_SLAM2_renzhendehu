@@ -167,6 +167,7 @@ public:
     float mRelocScore;
 
     // Variables used by loop closing
+    //global BA的结果
     cv::Mat mTcwGBA;
     cv::Mat mTcwBefGBA;
     long unsigned int mnBAGlobalForKF;

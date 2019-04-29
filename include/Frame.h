@@ -157,6 +157,10 @@ public:
 
     // Bag of Words Vector structures.
     DBoW2::BowVector mBowVec;
+    //mFeatVec是一个std::map<NodeId, std::vector<unsigned int> >
+    //将此帧的特征点分配到mpORBVocabulary树各个结点，从而得到mFeatVec
+    //mFeatVec->first代表结点ID
+    //mFeatVec->second代表在mFeatVec->first结点的特征点序号的vector集合
     DBoW2::FeatureVector mFeatVec;
 
     // ORB descriptor, each row associated to a keypoint.
@@ -168,6 +172,8 @@ public:
     std::vector<MapPoint*> mvpMapPoints;
 
     // Flag to identify outlier associations.
+    //描述比如经过位姿优化后，有哪些特征点是可以匹配上mappoint的，
+    //一般情况下他和mvpMapPoints描述的情况相同。它比mvpMapPoints时效性更强
     std::vector<bool> mvbOutlier;
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.

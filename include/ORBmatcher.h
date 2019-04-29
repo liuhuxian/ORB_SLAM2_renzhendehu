@@ -40,7 +40,7 @@ public:
 
     /**
     * 找到在 以x, y为中心,边长为2r的方形内且尺度在[minLevel, maxLevel]的特征点
-    * @param nnratio        匹配特征点是，确定时候最好匹配与次好匹配差距的阈值。其值越大，其匹配越精确
+    * @param nnratio        匹配特征点时，确定时候最好匹配与次好匹配差距的阈值。其值越小，其匹配越精确
     * @param checkOri       是否开启匹配点的方向分类
     */
     ORBmatcher(float nnratio=0.6, bool checkOri=true);
@@ -54,6 +54,13 @@ public:
 
     // Project MapPoints tracked in last frame into the current frame and search matches.
     // Used to track from previous frame (Tracking)
+      /**根据上一帧LastFrame的特征点以及所对应的mappoint信息，寻找当前帧的哪些特征点与哪些mappoint的匹配联系
+     * @param  CurrentFrame 当前帧
+     * @param  LastFrame    上一帧
+     * @param  th           阈值
+     * @param  bMono        是否为单目
+     * @return              成功匹配的数量
+     */
     int SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono);
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.
@@ -67,6 +74,13 @@ public:
     // Search matches between MapPoints in a KeyFrame and ORB in a Frame.
     // Brute force constrained to ORB that belong to the same vocabulary node (at a certain level)
     // Used in Relocalisation and Loop Detection
+     
+     /**
+    * @param  pKF               KeyFrame
+    * @param  F                 Current Frame
+    * @param  vpMapPointMatches 大小为F特征点数量，输出F中MapPoints对应的匹配，NULL表示未匹配
+    * @return                   成功匹配的数量
+    */
     int SearchByBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches);
     int SearchByBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12);
 
@@ -80,6 +94,7 @@ public:
     * @param vbPrevMatched  F1中待匹配的特征点
     * @param vnMatches12    输出F1中特征点匹配情况，大小是F1的特征点数量。其中-1表示未匹配，大于0表示匹配的特征点在F2中的序号
     * @param windowSize     加速匹配时用到的方形边长
+    * @return 成功匹配的数量
     */
     int SearchForInitialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize=10);
 
@@ -112,10 +127,11 @@ protected:
 
     float RadiusByViewingCos(const float &viewCos);
 
+    //找出数组histo中，vector.size()数量最大的前三位。也就是角度范围最多的前三位。
     void ComputeThreeMaxima(std::vector<int>* histo, const int L, int &ind1, int &ind2, int &ind3);
-
+    //匹配特征点时，确定时候最好匹配与次好匹配差距的阈值。其值越小，其匹配越精确
     float mfNNratio;
-    //是否开启匹配点的方向分类
+    //是否开启匹配点角度差与其他大多数匹配点角度差差异较大的匹配点
     bool mbCheckOrientation;
 };
 

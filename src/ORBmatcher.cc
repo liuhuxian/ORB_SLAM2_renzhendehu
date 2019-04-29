@@ -38,11 +38,7 @@ const int ORBmatcher::TH_HIGH = 100;
 const int ORBmatcher::TH_LOW = 50;
 const int ORBmatcher::HISTO_LENGTH = 30;
 
-/**
-* 找到在 以x, y为中心,边长为2r的方形内且尺度在[minLevel, maxLevel]的特征点
-* @param nnratio        匹配特征点是，确定时候最好匹配与次好匹配差距的阈值。其值越大，其匹配越精确
-* @param checkOri       是否开启匹配点的方向分类
-*/
+
 ORBmatcher::ORBmatcher(float nnratio, bool checkOri): mfNNratio(nnratio), mbCheckOrientation(checkOri)
 {
 }
@@ -163,6 +159,7 @@ bool ORBmatcher::CheckDistEpipolarLine(const cv::KeyPoint &kp1,const cv::KeyPoin
 
 int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPointMatches)
 {
+    // pKF可以看到的mappoint
     const vector<MapPoint*> vpMapPointsKF = pKF->GetMapPointMatches();
 
     vpMapPointMatches = vector<MapPoint*>(F.N,static_cast<MapPoint*>(NULL));
@@ -182,35 +179,44 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
     DBoW2::FeatureVector::const_iterator KFend = vFeatVecKF.end();
     DBoW2::FeatureVector::const_iterator Fend = F.mFeatVec.end();
 
+    //遍历vFeatVecKF的每个结点
     while(KFit != KFend && Fit != Fend)
     {
+	//步骤1：分别取出属于同一node的ORB特征点(只有属于同一node，才有可能是匹配点)
         if(KFit->first == Fit->first)
         {
             const vector<unsigned int> vIndicesKF = KFit->second;
             const vector<unsigned int> vIndicesF = Fit->second;
-
+	    
+	    //遍历KF中属于该node的特征点
             for(size_t iKF=0; iKF<vIndicesKF.size(); iKF++)
             {
                 const unsigned int realIdxKF = vIndicesKF[iKF];
 
+		//获得此特征点对应的mappoint
                 MapPoint* pMP = vpMapPointsKF[realIdxKF];
 
+		//如果此特征点没有对应mappoint
                 if(!pMP)
                     continue;
 
+		//如果此特征点对应的mappoint是坏的
                 if(pMP->isBad())
                     continue;                
 
+		//获得此特征点对应的描述子
                 const cv::Mat &dKF= pKF->mDescriptors.row(realIdxKF);
 
                 int bestDist1=256;
                 int bestIdxF =-1 ;
                 int bestDist2=256;
 
+		//遍历F中属于该node的特征点，找到最佳匹配点
                 for(size_t iF=0; iF<vIndicesF.size(); iF++)
                 {
                     const unsigned int realIdxF = vIndicesF[iF];
 
+		    // 表明这个点已经被匹配过了，不再匹配，加快速度
                     if(vpMapPointMatches[realIdxF])
                         continue;
 
@@ -218,6 +224,8 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
 
                     const int dist =  DescriptorDistance(dKF,dF);
 
+		    //更新bestDist1 bestDist2
+		    //bestDist1表示最佳匹配，bestDist2表示次佳匹配
                     if(dist<bestDist1)
                     {
                         bestDist2=bestDist1;
@@ -230,8 +238,10 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
                     }
                 }
 
+                //如果最佳匹配达到阈值
                 if(bestDist1<=TH_LOW)
                 {
+		    //如果最佳匹配和次佳匹配差距较大，那么就剔除这个匹配
                     if(static_cast<float>(bestDist1)<mfNNratio*static_cast<float>(bestDist2))
                     {
                         vpMapPointMatches[bestIdxF]=pMP;
@@ -407,16 +417,6 @@ int ORBmatcher::SearchByProjection(KeyFrame* pKF, cv::Mat Scw, const vector<MapP
     return nmatches;
 }
 
-/**
- * 搜索F1和F2之间的匹配点放在vnMatches12。如果mbCheckOrientation，则将F1中匹配成功的
- * 特征点按照其角度分类在rotHist中。
- * 计算出rotHist，vnMatches12
- * @param F1       参考帧
- * @param F2       当前帧
- * @param vbPrevMatched  F1中待匹配的特征点
- * @param vnMatches12    输出F1中特征点匹配情况，大小是F1的特征点数量。其中-1表示未匹配，大于0表示匹配的特征点在F2中的序号
- * @param windowSize     加速匹配时用到的方形边长
- */
 int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f> &vbPrevMatched, vector<int> &vnMatches12, int windowSize)
 {
     int nmatches=0;
@@ -424,7 +424,9 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
     //储存F1中匹配成功的点在F2中的序号
     vnMatches12 = vector<int>(F1.mvKeysUn.size(),-1);
 
-    //如果mbCheckOrientation为真，之后匹配成功的F1特征点会按照匹配特征点间的角度分类到rotHist。分类数量为HISTO_LENGTH
+    //如果mbCheckOrientation为真，之后匹配点匹配按照匹配点的角度差划分到rotHist。分类数量为HISTO_LENGTH
+    //是类型为vector<int>，大小为HISTO_LENGTH的数组
+    //假设HISTO_LENGTH=8，那么rotHist存放着匹配点角度差为0~45,45~90...315~360度的F1特征点序号
     vector<int> rotHist[HISTO_LENGTH];
     for(int i=0;i<HISTO_LENGTH;i++)
         rotHist[i].reserve(500);
@@ -487,10 +489,10 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
             }
         }
 
-        //描述子距离小于等于TH_LOW才考虑匹配
+        //描述*子距离小于等于TH_LOW才考虑匹配
         if(bestDist<=TH_LOW)
         {
-	    //如果最小距离bestDist，与次小距离相距足够远（用mfNNratio描述次阈值），则匹配成功，否则放弃
+	    //如果最小距离bestDist，与次小距离相距足够远（用mfNNratio描述其阈值），则匹配成功，否则放弃
             if(bestDist<(float)bestDist2*mfNNratio)
             {
 		//其他的F1中的特征点已经和bestIdx2匹配上了，形成冲突，于是删除之前的匹配，然后代替它
@@ -504,13 +506,10 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
                 vMatchedDistance[bestIdx2]=bestDist;
                 nmatches++;
  
-		//如果开启方向模糊查询
-		//将匹配的特征点之间角度分成HISTO_LENGTH个方向描述，放在rotHist里
-		//假设HISTO_LENGTH=8，那么rotHist存放这0~45,45~90...315~360度的F1特征点序号
-		//此时我想找匹配的特征点之间角度在45~90的，F1特征点，只需在rotHist[1]查询即可
+		//将i1按照匹配点角度差范围划分到rotHist中
                 if(mbCheckOrientation)
                 {
-		    //计算匹配的特征点之间角度
+		    //计算匹配点的角度差
                     float rot = F1.mvKeysUn[i1].angle-F2.mvKeysUn[bestIdx2].angle;
                     if(rot<0.0)
                         rot+=360.0f;
@@ -525,12 +524,17 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
 
     }
 
+    //其实这里的意思是，F1与F2之间匹配点的角度差应该差不多是一致的
+    //于是我们就将匹配点，按照匹配点间的角度差来分成HISTO_LENGTH类，放在rotHist
+    //然后剔除，那些角度差和其他大多数匹配点角度差差异较大的点
+    //具体就是，先找出前3多的角度差范围内，然后剔除那些不在这些角度差范围的匹配点
     if(mbCheckOrientation)
     {
         int ind1=-1;
         int ind2=-1;
         int ind3=-1;
 
+	//找出数组rotHist中，数量最多的前三位
         ComputeThreeMaxima(rotHist,HISTO_LENGTH,ind1,ind2,ind3);
 
         for(int i=0; i<HISTO_LENGTH; i++)
@@ -1368,7 +1372,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
 {
     int nmatches = 0;
 
-    // Rotation Histogram (to check rotation consistency)
+    //这里ORBmatcher::SearchForInitialization()里一致，具体看那里的注释，这里就不再重复了
     vector<int> rotHist[HISTO_LENGTH];
     for(int i=0;i<HISTO_LENGTH;i++)
         rotHist[i].reserve(500);
@@ -1387,15 +1391,18 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
     const bool bForward = tlc.at<float>(2)>CurrentFrame.mb && !bMono;
     const bool bBackward = -tlc.at<float>(2)>CurrentFrame.mb && !bMono;
 
+    //遍历上一帧LastFrame可以看到的所有特征点
     for(int i=0; i<LastFrame.N; i++)
     {
         MapPoint* pMP = LastFrame.mvpMapPoints[i];
 
+	//如果在上一帧的这个特征点对应有mappoint
         if(pMP)
         {
             if(!LastFrame.mvbOutlier[i])
             {
                 // Project
+		//针对上一帧的mappoint，将它投影当前帧，然后在投影后的位置进行特征点的搜索匹配
                 cv::Mat x3Dw = pMP->GetWorldPos();
                 cv::Mat x3Dc = Rcw*x3Dw+tcw;
 
@@ -1417,14 +1424,22 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
                 int nLastOctave = LastFrame.mvKeys[i].octave;
 
                 // Search in a window. Size depends on scale
+		// NOTE 尺度越大,图像越小
+                // 以下可以这么理解，例如一个有一定面积的圆点，在某个尺度n下它是一个特征点
+                // 当前进时，圆点的面积增大，在某个尺度m下它是一个特征点，由于面积增大，则需要在更高的尺度下才能检测出来
+                // 因此m>=n，对应前进的情况，nCurOctave>=nLastOctave。后退的情况可以类推
                 float radius = th*CurrentFrame.mvScaleFactors[nLastOctave];
 
+		//可能与pMP匹配的当前帧特征点
                 vector<size_t> vIndices2;
-
+		
+		// 前进,则上一帧兴趣点在所在的尺度nLastOctave<=nCurOctave
                 if(bForward)
                     vIndices2 = CurrentFrame.GetFeaturesInArea(u,v, radius, nLastOctave);
+		// 后退,则上一帧兴趣点在所在的尺度0<=nCurOctave<=nLastOctave
                 else if(bBackward)
                     vIndices2 = CurrentFrame.GetFeaturesInArea(u,v, radius, 0, nLastOctave);
+		 // 在[nLastOctave-1, nLastOctave+1]中搜索
                 else
                     vIndices2 = CurrentFrame.GetFeaturesInArea(u,v, radius, nLastOctave-1, nLastOctave+1);
 
@@ -1436,6 +1451,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
                 int bestDist = 256;
                 int bestIdx2 = -1;
 
+		//遍历vIndices2，筛选出与pMP最匹配的特征点
                 for(vector<size_t>::const_iterator vit=vIndices2.begin(), vend=vIndices2.end(); vit!=vend; vit++)
                 {
                     const size_t i2 = *vit;
@@ -1462,6 +1478,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
                     }
                 }
 
+                //bestDist<=TH_HIGH则匹配成功
                 if(bestDist<=TH_HIGH)
                 {
                     CurrentFrame.mvpMapPoints[bestIdx2]=pMP;
@@ -1484,6 +1501,7 @@ int ORBmatcher::SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, 
     }
 
     //Apply rotation consistency
+    //剔除方向不符合的匹配点
     if(mbCheckOrientation)
     {
         int ind1=-1;
@@ -1669,6 +1687,7 @@ void ORBmatcher::ComputeThreeMaxima(vector<int>* histo, const int L, int &ind1, 
         }
     }
 
+    //如果max1，与max2相差过大，则置ind2=ind3=-1
     if(max2<0.1f*(float)max1)
     {
         ind2=-1;
