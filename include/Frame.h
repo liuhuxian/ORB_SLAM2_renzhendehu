@@ -89,7 +89,7 @@ public:
     bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
 
     /**
-    * 找到在 以x, y为中心,边长为2r的方形内且在[minLevel, maxLevel]的特征点
+    * 找到在 以x, y为中心,边长为2r的方形搜索框内且在[minLevel, maxLevel]的特征点
     * @param x        图像坐标u
     * @param y        图像坐标v
     * @param r        边长
@@ -156,7 +156,10 @@ public:
     std::vector<float> mvDepth;
 
     // Bag of Words Vector structures.
+    //mBowVec本质是一个map<WordId, WordValue>
+    //对于某幅图像A，它的特征点可以对应多个单词，组成它的bow
     DBoW2::BowVector mBowVec;
+    
     //mFeatVec是一个std::map<NodeId, std::vector<unsigned int> >
     //将此帧的特征点分配到mpORBVocabulary树各个结点，从而得到mFeatVec
     //mFeatVec->first代表结点ID

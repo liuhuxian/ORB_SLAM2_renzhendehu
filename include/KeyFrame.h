@@ -159,11 +159,16 @@ public:
     long unsigned int mnBAFixedForKF;
 
     // Variables used by the keyframe database
+    //keyFrameDatabase.h中被使用的变量
     long unsigned int mnLoopQuery;
     int mnLoopWords;
     float mLoopScore;
+    //此为frame ID，标记是哪个frame查询过和此keyframe有相同的单词
     long unsigned int mnRelocQuery;
+    //mnRelocQuery指向的Frame和此keyframe有多少共同的单词
     int mnRelocWords;
+    //当mnRelocWords大于阈值值时，就会被计算此值。
+    //此为通过dbow计算的mnRelocQuery指向的Frame与此keyframe之间相似度的得分
     float mRelocScore;
 
     // Variables used by loop closing
@@ -180,13 +185,20 @@ public:
 
     // KeyPoints, stereo coordinate and descriptors (all associated by an index)
     const std::vector<cv::KeyPoint> mvKeys;
+    //
     const std::vector<cv::KeyPoint> mvKeysUn;
     const std::vector<float> mvuRight; // negative value for monocular points
     const std::vector<float> mvDepth; // negative value for monocular points
     const cv::Mat mDescriptors;
 
     //BoW
+    //mBowVec本质是一个map<WordId, WordValue>
+    //对于某幅图像A，它的特征点可以对应多个单词，组成它的bow
     DBoW2::BowVector mBowVec;
+    //mFeatVec是一个std::map<NodeId, std::vector<unsigned int> >
+    //将此帧的特征点分配到mpORBVocabulary树各个结点，从而得到mFeatVec
+    //mFeatVec->first代表结点ID
+    //mFeatVec->second代表在mFeatVec->first结点的特征点序号的vector集合
     DBoW2::FeatureVector mFeatVec;
 
     // Pose relative to parent (this is computed when bad flag is activated)

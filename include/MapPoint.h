@@ -106,7 +106,7 @@ public:
     int mnTrackScaleLevel;
     float mTrackViewCos;
     long unsigned int mnTrackReferenceForFrame;
-    //上一次是被哪一帧看到
+    //最后一次是被哪一帧跟踪
     long unsigned int mnLastFrameSeen;
 
     // Variables used by local mapping

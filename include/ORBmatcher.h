@@ -55,12 +55,13 @@ public:
     // Project MapPoints tracked in last frame into the current frame and search matches.
     // Used to track from previous frame (Tracking)
       /**根据上一帧LastFrame的特征点以及所对应的mappoint信息，寻找当前帧的哪些特征点与哪些mappoint的匹配联系
-     * @param  CurrentFrame 当前帧
-     * @param  LastFrame    上一帧
-     * @param  th           阈值
-     * @param  bMono        是否为单目
-     * @return              成功匹配的数量
-     */
+       * 根据上一帧特征点对应的3D点投影的位置缩小特征点匹配范围
+       * @param  CurrentFrame 当前帧
+       * @param  LastFrame    上一帧
+       * @param  th           控制特征搜索框的大小阈值
+       * @param  bMono        是否为单目
+       * @return              成功匹配的数量
+       */
     int SearchByProjection(Frame &CurrentFrame, const Frame &LastFrame, const float th, const bool bMono);
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.
@@ -76,11 +77,14 @@ public:
     // Used in Relocalisation and Loop Detection
      
      /**
-    * @param  pKF               KeyFrame
-    * @param  F                 Current Frame
-    * @param  vpMapPointMatches 大小为F特征点数量，输出F中MapPoints对应的匹配，NULL表示未匹配
-    * @return                   成功匹配的数量
-    */
+      * 针对pKF中有对应mappoint的那些特征点，和F中的特征点进行匹配
+      * 利用dbow进行匹配加速
+      * 通过距离阈值、比例阈值和角度投票进行剔除误匹配
+      * @param  pKF               KeyFrame
+      * @param  F                 Current Frame
+      * @param  vpMapPointMatches 大小为F特征点数量，输出F中MapPoints对应的匹配，NULL表示未匹配
+      * @return                   成功匹配的数量
+      */
     int SearchByBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches);
     int SearchByBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12);
 

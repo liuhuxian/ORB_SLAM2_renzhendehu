@@ -129,14 +129,40 @@ protected:
     // Map initialization for monocular
     //单目初始化
     void MonocularInitialization();
+    
     //单目模式下初始化后，开始建图
+    //将mInitialFrame和mCurrentFrame都设置为关键帧
+    //新建mappoint
+    //更新共视关系
     void CreateInitialMapMonocular();
 
     void CheckReplacedInLastFrame();
+    
+    /**
+    * 将参考帧关键帧mpReferenceKF的位姿作为当前帧mCurrentFrame的初始位姿；
+    * 匹配参考帧关键帧中有对应mappoint的特征点与当前帧特征点，通过dbow加速匹配；
+    * 优化3D点重投影误差，得到更精确的位姿以及剔除错误的特征点匹配；
+    * @return 如果匹配数大于10，返回true
+    */
     bool TrackReferenceKeyFrame();
+    /**
+     * 更新mLastFrame
+     * 更新mlpTemporalPoints
+     */
     void UpdateLastFrame();
+    
+    /**
+      * @brief 根据匀速度模型对上一帧mLastFrame的MapPoints与当前帧mCurrentFrame进行特征点跟踪匹配
+      * 
+      * 1. 非单目情况，需要对上一帧产生一些新的MapPoints（临时）
+      * 2. 将上一帧的MapPoints投影到当前帧的图像平面上，在投影的位置进行区域匹配
+      * 3. 根据匹配优化当前帧的姿态
+      * 4. 根据姿态剔除误匹配
+      * @return 如果匹配数大于10，返回true
+      */
     bool TrackWithMotionModel();
 
+    //BOW搜索候选关键帧，PnP求解位姿
     bool Relocalization();
 
     void UpdateLocalMap();
@@ -153,6 +179,8 @@ protected:
     // points in the map. Still tracking will continue if there are enough matches with temporal points.
     // In that case we are doing visual odometry. The system will try to do relocalization to recover
     // "zero-drift" localization to the map.
+    //在OnlyTracking模式中使用
+    //true表明在上一帧中匹配到了足够多的mappoint
     bool mbVO;
 
     //Other Thread Pointers
@@ -212,6 +240,7 @@ protected:
     Frame mLastFrame;
     //mpLastKeyFrame的FrameID
     unsigned int mnLastKeyFrameId;
+    //上一次Relocalization()使用的Frame ID
     unsigned int mnLastRelocFrameId;
 
     //Motion Model

@@ -188,7 +188,7 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
             const vector<unsigned int> vIndicesKF = KFit->second;
             const vector<unsigned int> vIndicesF = Fit->second;
 	    
-	    //遍历KF中属于该node的特征点
+	    //遍历pKF中属于该node的特征点
             for(size_t iKF=0; iKF<vIndicesKF.size(); iKF++)
             {
                 const unsigned int realIdxKF = vIndicesKF[iKF];
@@ -238,10 +238,10 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
                     }
                 }
 
-                //如果最佳匹配达到阈值
+                //如果最佳匹配达到阈值,也就是距离阈值剔除
                 if(bestDist1<=TH_LOW)
                 {
-		    //如果最佳匹配和次佳匹配差距较大，那么就剔除这个匹配
+		    //如果最佳匹配和次佳匹配差距较大，那么就剔除这个匹配。也就是比例剔除
                     if(static_cast<float>(bestDist1)<mfNNratio*static_cast<float>(bestDist2))
                     {
                         vpMapPointMatches[bestIdxF]=pMP;
@@ -281,16 +281,19 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
 
     if(mbCheckOrientation)
     {
+	//ind1，ind2，ind3表示主要的旋转方向
         int ind1=-1;
         int ind2=-1;
         int ind3=-1;
 
+	//计算ind1，ind2，ind3
         ComputeThreeMaxima(rotHist,HISTO_LENGTH,ind1,ind2,ind3);
 
         for(int i=0; i<HISTO_LENGTH; i++)
         {
             if(i==ind1 || i==ind2 || i==ind3)
                 continue;
+	    //对于不在ind1，ind2，ind3方向上的匹配，进行剔除
             for(size_t j=0, jend=rotHist[i].size(); j<jend; j++)
             {
                 vpMapPointMatches[rotHist[i][j]]=static_cast<MapPoint*>(NULL);
