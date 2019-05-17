@@ -171,7 +171,7 @@ public:
     cv::Mat mDescriptors, mDescriptorsRight;
 
     // MapPoints associated to keypoints, NULL pointer if no association.
-    //大小是mvKeys大小，表示mappoint和此帧特征点的联系
+    //大小是mvKeys大小，表示mappoint和此帧特征点的联系。如果没有联系则为NULL
     std::vector<MapPoint*> mvpMapPoints;
 
     // Flag to identify outlier associations.
@@ -197,6 +197,7 @@ public:
     long unsigned int mnId;
 
     // Reference Keyframe.
+    //参考关键帧
     KeyFrame* mpReferenceKF;
 
     // Scale pyramid info.

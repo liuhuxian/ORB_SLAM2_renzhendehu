@@ -49,6 +49,7 @@ public:
     KeyFrame* GetReferenceKeyFrame();
 
     std::map<KeyFrame*,size_t> GetObservations();
+    
     //返回此mappoint可以被keyframe看到的数量
     int Observations();
     
@@ -61,11 +62,13 @@ public:
     void EraseObservation(KeyFrame* pKF);
 
     int GetIndexInKeyFrame(KeyFrame* pKF);
+    //此mappoint是否能被pKF看到
     bool IsInKeyFrame(KeyFrame* pKF);
 
     void SetBadFlag();
     bool isBad();
 
+    //将此mappoint的相关信息继承给pMP，修改自己在其他keyframe的信息，并且“自杀”
     void Replace(MapPoint* pMP);    
     MapPoint* GetReplaced();
 
@@ -79,6 +82,7 @@ public:
     //在此mappoint能被看到的特征点中找出最能代表此mappoint的描述子
     void ComputeDistinctiveDescriptors();
 
+    //返回此mappoint的描述子
     cv::Mat GetDescriptor();
 
     //更新此mappoint参考帧光心到mappoint平均观测方向以及观测距离范围
@@ -86,6 +90,7 @@ public:
 
     float GetMinDistanceInvariance();
     float GetMaxDistanceInvariance();
+    //used by ORBmatcher::Fuse
     int PredictScale(const float &currentDist, KeyFrame*pKF);
     int PredictScale(const float &currentDist, Frame* pF);
 
@@ -105,6 +110,7 @@ public:
     bool mbTrackInView;
     int mnTrackScaleLevel;
     float mTrackViewCos;
+     // mnTrackReferenceForFrame防止重复添加局部MapPoint
     long unsigned int mnTrackReferenceForFrame;
     //最后一次是被哪一帧跟踪
     long unsigned int mnLastFrameSeen;
@@ -131,11 +137,11 @@ protected:
      cv::Mat mWorldPos;
 
      // Keyframes observing the point and associated index in keyframe
-     //记录此MapPoint对应的是KeyFrame中哪个特征点
+     //记录此MapPoint对应的是哪个KeyFrame中哪个特征点
      std::map<KeyFrame*,size_t> mObservations;
 
      // Mean viewing direction
-     // 平均的观测方向
+     // 平均的观测方向，MapPoint::UpdateNormalAndDepth()
      cv::Mat mNormalVector;
 
      // Best descriptor to fast matching
@@ -145,6 +151,7 @@ protected:
      KeyFrame* mpRefKF;
 
      // Tracking counters
+     //TrackLocalMap()里有用到
      int mnVisible;
      int mnFound;
 
@@ -154,9 +161,9 @@ protected:
      MapPoint* mpReplaced;
 
      // Scale invariance distances
-     // 观测到该点的距离下限
+     // 观测到该点的距离下限，具体看MapPoint::UpdateNormalAndDepth()
      float mfMinDistance;
-     // 观测到该点的距离上限
+     // 观测到该点的距离上限，具体看MapPoint::UpdateNormalAndDepth()
      float mfMaxDistance;
 
      Map* mpMap;

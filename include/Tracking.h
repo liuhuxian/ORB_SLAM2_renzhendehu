@@ -165,14 +165,28 @@ protected:
     //BOW搜索候选关键帧，PnP求解位姿
     bool Relocalization();
 
+    //更新局部地图，即更新局部地图关键帧，局部地图mappoint
     void UpdateLocalMap();
+    //将mvpLocalKeyFrames中的mappoint，添加到局部地图关键点mvpLocalMapPoints中
     void UpdateLocalPoints();
+    
+    /**
+     * 更新mpReferenceKF，mCurrentFrame.mpReferenceKF
+     * 更新局部地图关键帧mvpLocalKeyFrames
+     */
     void UpdateLocalKeyFrames();
 
     bool TrackLocalMap();
+    //在局部地图中查找在当前帧视野范围内的点，将视野范围内的点和当前帧的特征点进行投影匹配
     void SearchLocalPoints();
 
+    //判断是否需要添加新的keyframe
     bool NeedNewKeyFrame();
+    /**
+    * @brief 创建新的关键帧
+    *
+    * 对于非单目的情况，同时创建新的MapPoints
+    */
     void CreateNewKeyFrame();
 
     // In case of performing only localization, this flag is true when there are no matches to
@@ -199,6 +213,7 @@ protected:
     Initializer* mpInitializer;
 
     //Local Map
+    //参考关键帧（最近的一个关键帧）
     KeyFrame* mpReferenceKF;
     std::vector<KeyFrame*> mvpLocalKeyFrames;
     std::vector<MapPoint*> mvpLocalMapPoints;
@@ -221,6 +236,7 @@ protected:
 
     //New KeyFrame rules (according to fps)
     int mMinFrames;
+    //
     int mMaxFrames;
 
     // Threshold close/far points
@@ -238,9 +254,9 @@ protected:
     //最近新插入的keyframe
     KeyFrame* mpLastKeyFrame;
     Frame mLastFrame;
-    //mpLastKeyFrame的FrameID
+    //上一次插入mpLastKeyFrame的Frame的ID
     unsigned int mnLastKeyFrameId;
-    //上一次Relocalization()使用的Frame ID
+    //上一次Relocalization()使用的Frame ID，最近一次重定位帧的ID
     unsigned int mnLastRelocFrameId;
 
     //Motion Model

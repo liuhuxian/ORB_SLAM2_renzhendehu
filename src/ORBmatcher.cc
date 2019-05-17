@@ -885,6 +885,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
 
     const int nMPs = vpMapPoints.size();
 
+    //遍历vpMapPoints中的mappoint
     for(int i=0; i<nMPs; i++)
     {
         MapPoint* pMP = vpMapPoints[i];
@@ -892,6 +893,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
         if(!pMP)
             continue;
 
+	//pMP->IsInKeyFrame(pKF)表示pMP已经被pKF观测了，有了对应了特征点，也就不用融合了
         if(pMP->isBad() || pMP->IsInKeyFrame(pKF))
             continue;
 
@@ -899,9 +901,11 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
         cv::Mat p3Dc = Rcw*p3Dw + tcw;
 
         // Depth must be positive
+	//如果深度为负
         if(p3Dc.at<float>(2)<0.0f)
             continue;
 
+	//尺度归一化
         const float invz = 1/p3Dc.at<float>(2);
         const float x = p3Dc.at<float>(0)*invz;
         const float y = p3Dc.at<float>(1)*invz;
@@ -910,6 +914,8 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
         const float v = fy*y+cy;
 
         // Point must be inside the image
+	//uv是pMP投影到pKF的像素坐标
+	//如果pMP不在pKF图像中
         if(!pKF->IsInImage(u,v))
             continue;
 
@@ -921,20 +927,24 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
         const float dist3D = cv::norm(PO);
 
         // Depth must be inside the scale pyramid of the image
+	//深度必须在尺度金字塔范围内
         if(dist3D<minDistance || dist3D>maxDistance )
             continue;
 
         // Viewing angle must be less than 60 deg
         cv::Mat Pn = pMP->GetNormal();
 
+	//如果PO和Pn的夹角大于60度
         if(PO.dot(Pn)<0.5*dist3D)
             continue;
 
         int nPredictedLevel = pMP->PredictScale(dist3D,pKF);
 
         // Search in a radius
+	//求出radius
         const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
 
+	//获得pKF在uv附近的特征点
         const vector<size_t> vIndices = pKF->GetFeaturesInArea(u,v,radius);
 
         if(vIndices.empty())
@@ -946,6 +956,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, const vector<MapPoint *> &vpMapPoints, const
 
         int bestDist = 256;
         int bestIdx = -1;
+	//遍历vIndices，找出在vIndices中与pMP的最佳匹配
         for(vector<size_t>::const_iterator vit=vIndices.begin(), vend=vIndices.end(); vit!=vend; vit++)
         {
             const size_t idx = *vit;

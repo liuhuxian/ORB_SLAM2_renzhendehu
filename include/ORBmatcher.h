@@ -34,6 +34,7 @@
 namespace ORB_SLAM2
 {
 
+//该类负责特征点与特征点之间，地图点与特征点之间通过投影关系、词袋模型或者Sim3位姿匹配
 class ORBmatcher
 {    
 public:
@@ -86,6 +87,7 @@ public:
       * @return                   成功匹配的数量
       */
     int SearchByBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches);
+    // 匹配pKF1与pKF2之间的特征点并通过bow加速，vpMatches12是匹配特征点对应的MapPoints
     int SearchByBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12);
 
     // Matching for the Map Initialization (only used in the monocular case)
@@ -111,6 +113,12 @@ public:
     int SearchBySim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches12, const float &s12, const cv::Mat &R12, const cv::Mat &t12, const float th);
 
     // Project MapPoints into KeyFrame and search for duplicated MapPoints.
+    /**
+     * 将vpMapPoints中的mappoint与pKF的特征点进行匹配，若匹配的特征点已有mappoint与其匹配，
+     * 则选择其一与此特征点匹配，并抹去没有选择的那个mappoint，此为mappoint的融合
+     * @param radius 为在vpMapPoints投影到pKF搜索待匹配的特征点时的方框边长
+     * @return 融合的mappoint的数量
+     */
     int Fuse(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0);
 
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.

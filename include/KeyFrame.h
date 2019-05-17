@@ -55,10 +55,11 @@ public:
     cv::Mat GetTranslation();
 
     // Bag of Words Representation
+    //计算此关键帧的mBowVec，mFeatVec
     void ComputeBoW();
 
     // Covisibility graph functions
-    /**在共视图Covisibility graph中添加边
+    /**在共视图Covisibility graph中添加边，并调用UpdateBestCovisibles()更新essential graph
      * @param pKF 具有共视关系的其他关键帧
      * @param weight 和pKF共视的mappoint数量
      */
@@ -66,19 +67,21 @@ public:
     void EraseConnection(KeyFrame* pKF);
     
     
-    //更新共视图Covisibility graph和spanningtree
+    //更新共视图Covisibility graph,essential graph和spanningtree
     void UpdateConnections();
-    //更新共视图
+    //更新essential graph
     void UpdateBestCovisibles();
+    //返回此关键帧在Covisibility graph中与之相连接（有共视关系）的节点
     std::set<KeyFrame *> GetConnectedKeyFrames();
-    //返回共视图中与此节点连接的节点（即关键帧）
+    //返回Covisibility graph中与此节点连接的节点（即关键帧）
     std::vector<KeyFrame* > GetVectorCovisibleKeyFrames();
-    //返回共视图中与此节点连接的权值前N的节点
+    //返回Covisibility graph中与此节点连接的权值前N的节点
     std::vector<KeyFrame*> GetBestCovisibilityKeyFrames(const int &N);
     std::vector<KeyFrame*> GetCovisiblesByWeight(const int &w);
     int GetWeight(KeyFrame* pKF);
 
     // Spanning tree functions
+    //Spanning tree的节点为关键帧，共视程度最高的那个关键帧设置为节点在Spanning Tree中的父节点
     void AddChild(KeyFrame* pKF);
     void EraseChild(KeyFrame* pKF);
     void ChangeParent(KeyFrame* pKF);
@@ -106,6 +109,13 @@ public:
     MapPoint* GetMapPoint(const size_t &idx);
 
     // KeyPoint functions
+    /**参考Frame的GetFeaturesInArea
+      * 找到在 以x, y为中心,边长为2r的方形内的特征点
+      * @param x        图像坐标u
+      * @param y        图像坐标v
+      * @param r        边长
+      * @return         满足条件的特征点的序号
+      */
     std::vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r) const;
     cv::Mat UnprojectStereo(int i);
 
@@ -113,6 +123,8 @@ public:
     bool IsInImage(const float &x, const float &y) const;
 
     // Enable/Disable bad flag changes
+    
+    // Avoid that a keyframe can be erased while it is being process by loop closing
     void SetNotErase();
     void SetErase();
 
@@ -151,7 +163,9 @@ public:
     const float mfGridElementHeightInv;
 
     // Variables used by the tracking
+    //防止重复添加局部地图关键帧关键帧
     long unsigned int mnTrackReferenceForFrame;
+    //在LocalMapping::SearchInNeighbors()中，标记此keyframe将要融合（fuse）的keyframe ID
     long unsigned int mnFuseTargetForKF;
 
     // Variables used by the local mapping
@@ -159,10 +173,13 @@ public:
     long unsigned int mnBAFixedForKF;
 
     // Variables used by the keyframe database
-    //keyFrameDatabase.h中被使用的变量
+    //此为frame ID，标记是哪个keyframe查询过和此keyframe有相同的单词，且在essentialgraph中连接
     long unsigned int mnLoopQuery;
+    //mnLoopQuery指向的Frame和此keyframe有多少共同的单词
     int mnLoopWords;
+    //此为通过dbow计算的mnLoopQuery指向的Frame与此keyframe之间相似度的得分
     float mLoopScore;
+    
     //此为frame ID，标记是哪个frame查询过和此keyframe有相同的单词
     long unsigned int mnRelocQuery;
     //mnRelocQuery指向的Frame和此keyframe有多少共同的单词
@@ -226,6 +243,7 @@ protected:
     // SE3 Pose and camera center
     cv::Mat Tcw;
     cv::Mat Twc;
+    //关键帧光心在世界坐标系中的坐标
     cv::Mat Ow;
 
     cv::Mat Cw; // Stereo middel point. Only for visualization
@@ -245,20 +263,24 @@ protected:
     //与此关键帧其他关键帧的共视关系及其mappoint共视数量
     std::map<KeyFrame*,int> mConnectedKeyFrameWeights;
     
+    //mvpOrderedConnectedKeyFrames和mvOrderedWeights共同组成了论文里的covisibility graph
     //与此关键帧具有联结关系的关键帧，其顺序按照共视的mappoint数量递减排序
-    //这个其实就是共视图covisibility graph
     std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;
-    //mvpOrderedConnectedKeyFrames中共视的mappoint数量，也就是共视图covisibilitygraph权重，递减排列
+    //mvpOrderedConnectedKeyFrames中共视的mappoint数量，也就是共视图covisibility graph权重，递减排列
     std::vector<int> mvOrderedWeights;
 
     // Spanning Tree and Loop Edges
+    //此keyframe
     bool mbFirstConnection;
     
+    //此keyframe在Spanning Tree中的父节点
     KeyFrame* mpParent;
+    //此keyframe在Spanning Tree中的子节点集合
     std::set<KeyFrame*> mspChildrens;
     std::set<KeyFrame*> mspLoopEdges;
 
     // Bad flags
+    // Avoid that a keyframe can be erased while it is being process by loop closing
     bool mbNotErase;
     bool mbToBeErased;
     bool mbBad;    

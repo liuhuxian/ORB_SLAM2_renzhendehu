@@ -61,6 +61,7 @@ void LoopClosing::Run()
     while(1)
     {
         // Check if there are keyframes in the queue
+	//如果有新的keyframe插入到闭环检测序列（在localmapping::run()结尾处插入）
         if(CheckNewKeyFrames())
         {
             // Detect loop candidates and check covisibility consistency
@@ -102,6 +103,7 @@ bool LoopClosing::CheckNewKeyFrames()
 
 bool LoopClosing::DetectLoop()
 {
+    //先将要处理的闭环检测队列的关键帧弹出来一个
     {
         unique_lock<mutex> lock(mMutexLoopQueue);
         mpCurrentKF = mlpLoopKeyFrameQueue.front();
@@ -111,6 +113,7 @@ bool LoopClosing::DetectLoop()
     }
 
     //If the map contains less than 10 KF or less than 10 KF have passed from last loop detection
+    // 步骤1：如果距离上次闭环没多久（小于10帧），或者map中关键帧总共还没有10帧，则不进行闭环检测
     if(mpCurrentKF->mnId<mLastLoopKFid+10)
     {
         mpKeyFrameDB->add(mpCurrentKF);
@@ -121,6 +124,9 @@ bool LoopClosing::DetectLoop()
     // Compute reference BoW similarity score
     // This is the lowest score to a connected keyframe in the covisibility graph
     // We will impose loop candidates to have a higher similarity than this
+    //遍历所有共视关键帧，计算当前关键帧与每个共视关键的bow相似度得分，计算minScore
+    
+    //返回essential graph中与此节点连接的节点（即关键帧）
     const vector<KeyFrame*> vpConnectedKeyFrames = mpCurrentKF->GetVectorCovisibleKeyFrames();
     const DBoW2::BowVector &CurrentBowVec = mpCurrentKF->mBowVec;
     float minScore = 1;
@@ -138,6 +144,7 @@ bool LoopClosing::DetectLoop()
     }
 
     // Query the database imposing the minimum score
+    //在最低相似度 minScore的要求下，获得闭环检测的候选帧
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectLoopCandidates(mpCurrentKF, minScore);
 
     // If there are no loop candidates, just add new keyframe and return false
@@ -153,34 +160,56 @@ bool LoopClosing::DetectLoop()
     // Each candidate expands a covisibility group (keyframes connected to the loop candidate in the covisibility graph)
     // A group is consistent with a previous group if they share at least a keyframe
     // We must detect a consistent loop in several consecutive keyframes to accept it
+    //vpCandidateKFs中的每个闭环检测的候选帧都会，通过共视关键帧，扩展为一个spCandidateGroup
+    //对于这vpCandidateKFs.size()个spCandidateGroup，
+    
+    
+    
     mvpEnoughConsistentCandidates.clear();
 
     vector<ConsistentGroup> vCurrentConsistentGroups;
     vector<bool> vbConsistentGroup(mvConsistentGroups.size(),false);
+    //遍历vpCandidateKFs，将其中每个关键帧都通过寻找在covisibility graph与自己连接的关键帧，扩展为一个spCandidateGroup
+    //也就是遍历每一个spCandidateGroup
+    //FOR1
     for(size_t i=0, iend=vpCandidateKFs.size(); i<iend; i++)
     {
         KeyFrame* pCandidateKF = vpCandidateKFs[i];
 
+	//这个条件是否太宽松?pCandidateKF->GetVectorCovisibleKeyFrames()是否更好一点？
         set<KeyFrame*> spCandidateGroup = pCandidateKF->GetConnectedKeyFrames();
         spCandidateGroup.insert(pCandidateKF);
 
         bool bEnoughConsistent = false;
+	//
         bool bConsistentForSomeGroup = false;
+	
+	//遍历mvConsistentGroups，判断spCandidateGroup与mvConsistentGroups[iG]是否连续
+	//FOR2
         for(size_t iG=0, iendG=mvConsistentGroups.size(); iG<iendG; iG++)
         {
             set<KeyFrame*> sPreviousGroup = mvConsistentGroups[iG].first;
 
+	    //当前的spCandidateGroup之后要不要插入vCurrentConsistentGroups
             bool bConsistent = false;
+	    //遍历spCandidateGroup里的关键帧，判断spCandidateGroup与mvConsistentGroups[iG]是否连续，
+	    //也就是判断spCandidateGroup和mvConsistentGroups[iG]是否有相同的关键帧
+	    //FOR3
             for(set<KeyFrame*>::iterator sit=spCandidateGroup.begin(), send=spCandidateGroup.end(); sit!=send;sit++)
             {
+		//如果在sPreviousGroup里找到sit
                 if(sPreviousGroup.count(*sit))
                 {
+		    //true表示标记sit所在的spCandidateGroup与sPreviousGroup连续（consistent）
+		    //之后要插入到vCurrentConsistentGroups
                     bConsistent=true;
+		    //true表示标记vCurrentConsistentGroups元素之间存在连续（consistent）
                     bConsistentForSomeGroup=true;
                     break;
                 }
             }
-
+	    
+	    //
             if(bConsistent)
             {
                 int nPreviousConsistency = mvConsistentGroups[iG].second;
@@ -244,26 +273,35 @@ bool LoopClosing::ComputeSim3()
     vector<vector<MapPoint*> > vvpMapPointMatches;
     vvpMapPointMatches.resize(nInitialCandidates);
 
+    //标识nInitialCandidates中哪些keyframe将被抛弃
     vector<bool> vbDiscarded;
     vbDiscarded.resize(nInitialCandidates);
 
     int nCandidates=0; //candidates with enough matches
 
+    //遍历候选闭环关键帧nInitialCandidates
     for(int i=0; i<nInitialCandidates; i++)
     {
+	
         KeyFrame* pKF = mvpEnoughConsistentCandidates[i];
 
         // avoid that local mapping erase it while it is being processed in this thread
+	// 防止在LocalMapping中KeyFrameCulling函数将此关键帧作为冗余帧剔除
         pKF->SetNotErase();
 
+	//如果
         if(pKF->isBad())
         {
+	    //舍弃该帧
             vbDiscarded[i] = true;
             continue;
         }
 
+	// 步骤2：将当前帧mpCurrentKF与闭环候选关键帧pKF匹配
+        // 匹配mpCurrentKF与pKF之间的特征点并通过bow加速，vvpMapPointMatches是匹配特征点对应的MapPoints
         int nmatches = matcher.SearchByBoW(mpCurrentKF,pKF,vvpMapPointMatches[i]);
 
+	//匹配的特征点数量太少，剔除该候选关键帧
         if(nmatches<20)
         {
             vbDiscarded[i] = true;
@@ -271,6 +309,7 @@ bool LoopClosing::ComputeSim3()
         }
         else
         {
+	    //新建一个Sim3Solver对象，执行其构造函数
             Sim3Solver* pSolver = new Sim3Solver(mpCurrentKF,pKF,vvpMapPointMatches[i],mbFixScale);
             pSolver->SetRansacParameters(0.99,20,300);
             vpSim3Solvers[i] = pSolver;

@@ -84,6 +84,7 @@ public:
 
 protected:
 
+    //判断mlpLoopKeyFrameQueue是否非空
     bool CheckNewKeyFrames();
 
     bool DetectLoop();

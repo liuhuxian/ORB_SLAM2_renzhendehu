@@ -52,10 +52,11 @@ public:
    void clear();
 
    // Loop Detection
+   //在KeyFrameDatabase，以及与pKF在covisibility graph连接的keyframe中找出与pKF可能形成闭环的候选帧
    std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame* pKF, float minScore);
 
    // Relocalization
-   //找到与当前帧相似F的候选关键帧
+   //在KeyFrameDatabase找出与当前帧相似F的候选关键帧，并返回
    std::vector<KeyFrame*> DetectRelocalizationCandidates(Frame* F);
 
 protected:

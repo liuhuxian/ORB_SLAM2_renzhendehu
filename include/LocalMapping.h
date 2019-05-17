@@ -58,7 +58,10 @@ public:
     void Release();
     bool isStopped();
     bool stopRequested();
+    //返回mbAcceptKeyFrames，查询局部地图管理器是否繁忙
     bool AcceptKeyFrames();
+    // 设置mbAcceptKeyFrames，false表示告诉Tracking，
+    //LocalMapping正处于繁忙状态，不能接受插入新的keyframe
     void SetAcceptKeyFrames(bool flag);
     bool SetNotStop(bool flag);
 
@@ -74,13 +77,26 @@ public:
 
 protected:
 
+    //返回mlNewKeyFrames是否为空，也就是查询等待处理的关键帧列表是否空
     bool CheckNewKeyFrames();
+    /**
+    * @brief 处理列表中的关键帧
+    * 
+    * - 计算Bow，加速三角化新的MapPoints
+    * - 关联当前关键帧至MapPoints，并更新MapPoints的平均观测方向和观测距离范围
+    * - 插入关键帧，更新Covisibility图和Essential图，以及spanningtree
+    */
     void ProcessNewKeyFrame();
+    // 相机运动过程中与相邻关键帧通过三角化恢复出一些MapPoints
     void CreateNewMapPoints();
 
+    // 剔除ProcessNewKeyFrame和CreateNewMapPoints函数中引入在mlpRecentAddedMapPoints的质量不好的MapPoints
     void MapPointCulling();
+    // 检查并融合与当前关键帧共视程度高的帧重复的MapPoints
     void SearchInNeighbors();
 
+    // 检测并剔除当前帧相邻的关键帧中冗余的关键帧
+    // 剔除的标准是：该关键帧的90%的MapPoints可以被其它至少3个关键帧观测到
     void KeyFrameCulling();
 
     cv::Mat ComputeF12(KeyFrame* &pKF1, KeyFrame* &pKF2);
@@ -119,6 +135,7 @@ protected:
     bool mbNotStop;
     std::mutex mMutexStop;
 
+    //是否能接受插入新的keyframe标志位
     bool mbAcceptKeyFrames;
     std::mutex mMutexAccept;
 };

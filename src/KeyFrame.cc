@@ -64,6 +64,9 @@ void KeyFrame::ComputeBoW()
         // Feature vector associate features with nodes in the 4th level (from leaves up)
         // We assume the vocabulary tree has 6 levels, change the 4 otherwise
 	//Transform a set of descriptors into a bow vector and a feature vector
+	//将向量化的描述子转化为bow以及featurevector，其中featurevector中的节点是在词典树的第4层
+	//计算mBowVec，并且将描述子分散在第4层上
+	//叶子节点层在第0层
         mpORBvocabulary->transform(vCurrentDesc,mBowVec,mFeatVec,4);
     }
 }
@@ -303,7 +306,7 @@ void KeyFrame::UpdateConnections()
 
     //For all map points in keyframe check in which other keyframes are they seen
     //Increase counter for those keyframes
-    // 计算每一个关键帧都有多少其他关键帧与它存在共视关系，结果放在KFcounter
+    // 计算每一个关键帧都有多少其他关键帧与它存在共视关系，结果放在KFcounter，其实就是论文里的covisibility graph
     //遍历此关键帧可以看到的mappoint
     for(vector<MapPoint*>::iterator vit=vpMP.begin(), vend=vpMP.end(); vit!=vend; vit++)
     {
@@ -327,7 +330,7 @@ void KeyFrame::UpdateConnections()
     }
 
     // This should not happen
-    //没有其他关键帧和此关键帧有公式关系
+    //没有其他关键帧和此关键帧有关系
     if(KFcounter.empty())
         return;
 
@@ -336,11 +339,11 @@ void KeyFrame::UpdateConnections()
     //记录和其他关键帧共视mappoint数量最多的关键帧和数量
     int nmax=0;
     KeyFrame* pKFmax=NULL;
-    //判断两关键帧是否共生成共视图covisibilitygraph的一条边
+    //判断两关键帧是否共生成covisibility graph的一条边
     int th = 15;
 
 
-    //当共视mappoint点数量达到一定阈值th的情况下，在共视图covisibilitygraph添加一条边
+    //当共视mappoint点数量达到一定阈值th的情况下，在covisibility graph添加一条边
     vector<pair<int,KeyFrame*> > vPairs;
     vPairs.reserve(KFcounter.size());
     for(map<KeyFrame*,int>::iterator mit=KFcounter.begin(), mend=KFcounter.end(); mit!=mend; mit++)
@@ -359,12 +362,12 @@ void KeyFrame::UpdateConnections()
 
     if(vPairs.empty())
     {
-	//如果共视数量达不到th阈值，那么就把最大的添加进去
+	//如果共视数量达不到th阈值，那么就把最大的pKFmax添加进去
         vPairs.push_back(make_pair(nmax,pKFmax));
         pKFmax->AddConnection(this,nmax);
     }
 
-    //根据视图covisibilitygraph权重由小到大排序
+    //根据视图covisibility graph权重由小到大排序
     sort(vPairs.begin(),vPairs.end());
     list<KeyFrame*> lKFs;
     list<int> lWs;
@@ -373,14 +376,16 @@ void KeyFrame::UpdateConnections()
     {
         lKFs.push_front(vPairs[i].second);
         lWs.push_front(vPairs[i].first);
-    }
+    } 
 
     {
         unique_lock<mutex> lockCon(mMutexConnections);
 
         // mspConnectedKeyFrames = spConnectedKeyFrames;
-	// 更新共视图的连接
+	// 更新共视图covisibility graph的连接
         mConnectedKeyFrameWeights = KFcounter;
+	
+	//更新covisibility graph连接
 	//mvpOrderedConnectedKeyFrames权重由大到小排列
         mvpOrderedConnectedKeyFrames = vector<KeyFrame*>(lKFs.begin(),lKFs.end());
         mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());
