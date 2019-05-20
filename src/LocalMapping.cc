@@ -84,6 +84,7 @@ void LocalMapping::Run()
             mbAbortBA = false;
 
 	    // 已经处理完队列中的最后的一个关键帧，并且闭环检测此时没有请求停止LocalMapping
+	    //有空就来次local BA
             if(!CheckNewKeyFrames() && !stopRequested())
             {
                 // Local BA

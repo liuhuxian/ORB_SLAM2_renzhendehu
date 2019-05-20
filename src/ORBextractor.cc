@@ -423,7 +423,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     //初始化mvScaleFactor，mvLevelSigma2
     mvScaleFactor[0]=1.0f;
     mvLevelSigma2[0]=1.0f;
-    //根据scaleFactor计算每层的mvScaleFactor，其值单调递增
+    //根据scaleFactor计算每层的尺度因子mvScaleFactor，其值单调递增
     for(int i=1; i<nlevels; i++)
     {
         mvScaleFactor[i]=mvScaleFactor[i-1]*scaleFactor;
@@ -1131,13 +1131,7 @@ static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Ma
 }
 
 
-//通过调用()来提取图像的orb的关键点和描述子
-//输入的变量
-// _image:获取的灰度图像
-// _mask:掩码
-// _keypoints:关键点位置
-// _descriptors:描述子
-//括号运算符输入图像，并且传入引用参数_keypoints,_descriptors用于计算得到的特征点及其描述子
+
 void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPoint>& _keypoints,
                       OutputArray _descriptors)
 { 

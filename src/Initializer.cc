@@ -84,6 +84,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
 
     DUtils::Random::SeedRandOnce(0);
 
+    //RANSAC循环mMaxIterations次
     for(int it=0; it<mMaxIterations; it++)
     {
         vAvailableIndices = vAllIndices;
@@ -116,7 +117,8 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     thread threadF(&Initializer::FindFundamental,this,ref(vbMatchesInliersF), ref(SF), ref(F));
 
     // Wait until both threads have finished
-    //等待线程threadH，threadF结束才能退出Initialize（）
+    //在这里等待线程threadH，threadF结束才往下继续执行
+    //也就是等待SH，SF的结果
     threadH.join();
     threadF.join();
 

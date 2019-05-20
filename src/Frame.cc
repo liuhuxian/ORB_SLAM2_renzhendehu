@@ -25,7 +25,7 @@
 
 namespace ORB_SLAM2
 {
-
+//静态变量初始化
 long unsigned int Frame::nNextId=0;
 bool Frame::mbInitialComputations=true;
 float Frame::cx, Frame::cy, Frame::fx, Frame::fy, Frame::invfx, Frame::invfy;
@@ -140,6 +140,7 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     if(mvKeys.empty())
         return;
 
+    //关键点畸变矫正
     UndistortKeyPoints();
 
     ComputeStereoFromRGBD(imDepth);
@@ -168,7 +169,8 @@ Frame::Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeSt
     }
 
     mb = mbf/fx;
-
+    
+    //将特征点分配到窗格中以加速特征点匹配
     AssignFeaturesToGrid();
 }
 
@@ -190,6 +192,7 @@ Frame::Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extra
     mvInvLevelSigma2 = mpORBextractorLeft->GetInverseScaleSigmaSquares();
 
     // ORB extraction
+    // 提取orb特征点
     ExtractORB(0,imGray);
 
     N = mvKeys.size();
@@ -285,6 +288,7 @@ bool Frame:: isInFrustum(MapPoint *pMP, float viewingCosLimit)
     const float &PcZ = Pc.at<float>(2);
 
     // Check positive depth
+    //如果z值为负，舍弃
     if(PcZ<0.0f)
         return false;
 
@@ -293,6 +297,7 @@ bool Frame:: isInFrustum(MapPoint *pMP, float viewingCosLimit)
     const float u=fx*PcX*invz+cx;
     const float v=fy*PcY*invz+cy;
 
+    //
     if(u<mnMinX || u>mnMaxX)
         return false;
     if(v<mnMinY || v>mnMaxY)
@@ -308,8 +313,9 @@ bool Frame:: isInFrustum(MapPoint *pMP, float viewingCosLimit)
         return false;
 
    // Check viewing angle
+    //检查观测角是否在阈值以内
     cv::Mat Pn = pMP->GetNormal();
-
+    //观测角的cos值
     const float viewCos = PO.dot(Pn)/dist;
 
     if(viewCos<viewingCosLimit)

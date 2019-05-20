@@ -60,6 +60,9 @@ namespace ORB_SLAM2
 
 class PnPsolver {
  public:
+   /**构造函数
+    * @param vpMapPointMatches[i]表示F中第i个特征点所指向的mappoint
+    */
   PnPsolver(const Frame &F, const vector<MapPoint*> &vpMapPointMatches);
 
   ~PnPsolver();
@@ -82,6 +85,7 @@ class PnPsolver {
   void add_correspondence(const double X, const double Y, const double Z,
               const double u, const double v);
 
+  //计算相机位姿
   double compute_pose(double R[3][3], double T[3]);
 
   void relative_error(double & rot_err, double & transl_err,
@@ -126,7 +130,7 @@ class PnPsolver {
 
 
   double uc, vc, fu, fv;
-
+  //pws,us为RANSAC生成的3d，2d坐标点的容器
   double * pws, * us, * alphas, * pcs;
   int maximum_number_of_correspondences;
   int number_of_correspondences;
@@ -137,13 +141,17 @@ class PnPsolver {
   vector<MapPoint*> mvpMapPointMatches;
 
   // 2D Points
+  //F的mappoint对应的F的特征点的像素坐标
   vector<cv::Point2f> mvP2D;
+  //与高斯金字塔有关
   vector<float> mvSigma2;
 
   // 3D Points
+  //F的mappoint的3d世界坐标
   vector<cv::Point3f> mvP3Dw;
 
   // Index in Frame
+  //mvP2D,mvP3Dw对应F的特征点在F中的序号
   vector<size_t> mvKeyPointIndices;
 
   // Current Estimation

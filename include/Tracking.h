@@ -97,13 +97,15 @@ public:
     cv::Mat mImGray;
 
     // Initialization Variables (Monocular)
+    //这个没有用到
     std::vector<int> mvIniLastMatches;
     //初始化时得到的特征点匹配，大小是mInitialFrame的特征点数量，其值是当前帧特征点序号
     std::vector<int> mvIniMatches;
-    //mInitialFrame中待匹配的特征点
+    //mInitialFrame中待匹配的特征点的像素位置
     std::vector<cv::Point2f> mvbPrevMatched;
     //初始化时三角化投影成功的匹配点对应的3d点
     std::vector<cv::Point3f> mvIniP3D;
+    //初始化的第一帧，初始化需要两帧,世界坐标系就是这帧的坐标系
     Frame mInitialFrame;
 
     // Lists used to recover the full camera trajectory at the end of the execution.
@@ -121,13 +123,19 @@ public:
 protected:
 
     // Main tracking function. It is independent of the input sensor.
+    //跟踪
     void Track();
 
     // Map initialization for stereo and RGB-D
     void StereoInitialization();
 
     // Map initialization for monocular
-    //单目初始化
+    /**
+    * @brief 单目的地图初始化
+    *
+    * 并行地计算基础矩阵和单应性矩阵，选取其中一个模型，恢复出最开始两帧之间的相对姿态以及点云
+    * 得到初始两帧的匹配、相对运动、初始MapPoints
+    */
     void MonocularInitialization();
     
     //单目模式下初始化后，开始建图
@@ -141,7 +149,7 @@ protected:
     /**
     * 将参考帧关键帧mpReferenceKF的位姿作为当前帧mCurrentFrame的初始位姿；
     * 匹配参考帧关键帧中有对应mappoint的特征点与当前帧特征点，通过dbow加速匹配；
-    * 优化3D点重投影误差，得到更精确的位姿以及剔除错误的特征点匹配；
+    * 以上一帧的位姿态为初始值，优化3D点重投影误差，得到更精确的位姿以及剔除错误的特征点匹配；
     * @return 如果匹配数大于10，返回true
     */
     bool TrackReferenceKeyFrame();
@@ -177,7 +185,7 @@ protected:
     void UpdateLocalKeyFrames();
 
     bool TrackLocalMap();
-    //在局部地图中查找在当前帧视野范围内的点，将视野范围内的点和当前帧的特征点进行投影匹配
+    //在局部地图的mappoint中查找在当前帧视野范围内的点，将视野范围内的点和当前帧的特征点进行投影匹配
     void SearchLocalPoints();
 
     //判断是否需要添加新的keyframe
@@ -213,7 +221,7 @@ protected:
     Initializer* mpInitializer;
 
     //Local Map
-    //参考关键帧（最近的一个关键帧）
+    //参考关键帧，和当前帧共视程度最高的关键帧
     KeyFrame* mpReferenceKF;
     std::vector<KeyFrame*> mvpLocalKeyFrames;
     std::vector<MapPoint*> mvpLocalMapPoints;
@@ -253,8 +261,9 @@ protected:
     //Last Frame, KeyFrame and Relocalisation Info
     //最近新插入的keyframe
     KeyFrame* mpLastKeyFrame;
+    // 记录最近的一帧
     Frame mLastFrame;
-    //上一次插入mpLastKeyFrame的Frame的ID
+    //tracking上一次插入mpLastKeyFrame的Frame的ID
     unsigned int mnLastKeyFrameId;
     //上一次Relocalization()使用的Frame ID，最近一次重定位帧的ID
     unsigned int mnLastRelocFrameId;

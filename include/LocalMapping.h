@@ -52,6 +52,7 @@ public:
     void InsertKeyFrame(KeyFrame* pKF);
 
     // Thread Synch
+    // 当检测到闭环时，请求局部地图停止，防止局部地图线程中InsertKeyFrame函数插入新的关键帧
     void RequestStop();
     void RequestReset();
     bool Stop();

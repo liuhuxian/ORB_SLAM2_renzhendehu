@@ -228,6 +228,7 @@ cv::Mat System::TrackMonocular(const cv::Mat &im, const double &timestamp)
 	
         unique_lock<mutex> lock(mMutexMode);
 	//LocalizationMode（重定位）模式是否激活，如果激活则要求停止LocalMapper
+	// 在viewer中有个开关menuLocalizationMode，有它控制是否ActivateLocalizationMode，并最终管控mbOnlyTracking
         if(mbActivateLocalizationMode)
         {
             mpLocalMapper->RequestStop();

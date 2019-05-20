@@ -59,10 +59,12 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
     mvAllIndices.reserve(mN1);
 
     size_t idx=0;
+    // mN1为pKF1特征点的个数,遍历vpMatched12中匹配的每对的mappoint
     for(int i1=0; i1<mN1; i1++)
     {
         if(vpMatched12[i1])
         {
+	    // pMP1和pMP2是匹配的MapPoint
             MapPoint* pMP1 = vpKeyFrameMP1[i1];
             MapPoint* pMP2 = vpMatched12[i1];
 
@@ -77,7 +79,7 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
 
             if(indexKF1<0 || indexKF2<0)
                 continue;
-
+	    // indexKF1和indexKF2是匹配特征点的索引
             const cv::KeyPoint &kp1 = pKF1->mvKeysUn[indexKF1];
             const cv::KeyPoint &kp2 = pKF2->mvKeysUn[indexKF2];
 
@@ -104,7 +106,8 @@ Sim3Solver::Sim3Solver(KeyFrame *pKF1, KeyFrame *pKF2, const vector<MapPoint *> 
 
     mK1 = pKF1->mK;
     mK2 = pKF2->mK;
-
+    
+    
     FromCameraToImage(mvX3Dc1,mvP1im1,mK1);
     FromCameraToImage(mvX3Dc2,mvP2im2,mK2);
 
@@ -139,6 +142,7 @@ void Sim3Solver::SetRansacParameters(double probability, int minInliers, int max
 
 cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInliers, int &nInliers)
 {
+    //是否符合ransac的标准，也就是RANSAC是否成功
     bNoMore = false;
     vbInliers = vector<bool>(mN1,false);
     nInliers=0;
@@ -151,18 +155,20 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
 
     vector<size_t> vAvailableIndices;
 
+    //随机抽取的3对点
     cv::Mat P3Dc1i(3,3,CV_32F);
     cv::Mat P3Dc2i(3,3,CV_32F);
 
     int nCurrentIterations = 0;
     while(mnIterations<mRansacMaxIts && nCurrentIterations<nIterations)
     {
-        nCurrentIterations++;
-        mnIterations++;
+        nCurrentIterations++;// 这个函数中迭代的次数
+        mnIterations++;// 总的迭代次数，默认为最大为300
 
         vAvailableIndices = mvAllIndices;
 
         // Get min set of points
+	//从vAvailableIndices储存的序列集合中随机抽取3个数字，记得删除它哦
         for(short i = 0; i < 3; ++i)
         {
             int randi = DUtils::Random::RandomInt(0, vAvailableIndices.size()-1);
@@ -172,14 +178,18 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
             mvX3Dc1[idx].copyTo(P3Dc1i.col(i));
             mvX3Dc2[idx].copyTo(P3Dc2i.col(i));
 
+	    //删除随机数序号
             vAvailableIndices[randi] = vAvailableIndices.back();
             vAvailableIndices.pop_back();
         }
-
+	
+	// 根据3对匹配的3D点，计算之间的Sim3变换，也就是计算尺度s旋转R以及平移t
         ComputeSim3(P3Dc1i,P3Dc2i);
 
+	// 通过投影误差进行inlier检测
         CheckInliers();
 
+	//更新mnBestInliers
         if(mnInliersi>=mnBestInliers)
         {
             mvbBestInliers = mvbInliersi;
@@ -200,6 +210,7 @@ cv::Mat Sim3Solver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInli
         }
     }
 
+    //总的迭代次数超过阈值mRansacMaxIts都还有没达到mnInliersi>mRansacMinInliers的要求，于是bNoMore=true
     if(mnIterations>=mRansacMaxIts)
         bNoMore=true;
 
@@ -340,11 +351,13 @@ void Sim3Solver::ComputeSim3(cv::Mat &P1, cv::Mat &P2)
 void Sim3Solver::CheckInliers()
 {
     vector<cv::Mat> vP1im2, vP2im1;
+    ////将mvX3Dc2中的3d点通过参数mT12i，mK1投影为2d像素坐标，放入vP2im1
     Project(mvX3Dc2,vP2im1,mT12i,mK1);
     Project(mvX3Dc1,vP1im2,mT21i,mK2);
 
     mnInliersi=0;
 
+    //判定mvP1im1中的点哪些是内点
     for(size_t i=0; i<mvP1im1.size(); i++)
     {
         cv::Mat dist1 = mvP1im1[i]-vP2im1[i];

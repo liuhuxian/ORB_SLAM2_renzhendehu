@@ -56,6 +56,8 @@ public:
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Constructor for Monocular cameras.
+    //针对单目的frame构造函数
+    //提取了orb特征点
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
@@ -82,6 +84,7 @@ public:
 
     // Check if a MapPoint is in the frustum of the camera
     // and fill variables of the MapPoint to be used by the tracking
+    //pMP是否在当前帧视野范围内
     bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
 
     // Compute the cell of a keypoint (return false if outside the grid)
@@ -225,6 +228,7 @@ private:
     // Undistort keypoints given OpenCV distortion parameters.
     // Only for the RGB-D case. Stereo must be already rectified!
     // (called in the constructor).
+    //关键点畸变矫正
     void UndistortKeyPoints();
 
     // Computes image bounds for the undistorted image (called in the constructor).

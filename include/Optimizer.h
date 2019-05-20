@@ -42,7 +42,7 @@ public:
      * @param vpMP 空间点优化变量相关的mappoint
      * @param nIterations 使用G2o优化次数
      * @param pbStopFlag  是否强制暂停
-     * @param nLoopKF
+     * @param nLoopKF  表明在id为nLoopKF处进行的BA
      * @param bRobust  是否使用核函数
      */
     void static BundleAdjustment(const std::vector<KeyFrame*> &vpKF, const std::vector<MapPoint*> &vpMP,
@@ -74,6 +74,11 @@ public:
                                        const bool &bFixScale);
 
     // if bFixScale is true, optimize SE3 (stereo,rgbd), Sim3 otherwise (mono)
+    /**
+     * @param pKF1
+     * @param vpMatches1 pKF1的特征点与pKF2的mappoint匹配情况
+     * @return 
+     */
     static int OptimizeSim3(KeyFrame* pKF1, KeyFrame* pKF2, std::vector<MapPoint *> &vpMatches1,
                             g2o::Sim3 &g2oS12, const float th2, const bool bFixScale);
 };

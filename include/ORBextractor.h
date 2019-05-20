@@ -61,6 +61,13 @@ public:
     // ORB are dispersed on the image using an octree.
     // Mask is ignored in the current implementation.
     //重载了()运算符
+    //通过调用()来提取图像的orb的关键点和描述子
+    //输入的变量
+    // _image:获取的灰度图像
+    // _mask:掩码
+    // _keypoints:关键点位置
+    // _descriptors:描述子
+    //括号运算符输入图像，并且传入引用参数_keypoints,_descriptors用于计算得到的特征点及其描述子
     void operator()( cv::InputArray image, cv::InputArray mask,
       std::vector<cv::KeyPoint>& keypoints,
       cv::OutputArray descriptors);

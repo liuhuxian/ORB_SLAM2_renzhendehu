@@ -292,6 +292,7 @@ void MapPoint::ComputeDistinctiveDescriptors()
     }
 
     // Take the descriptor with least median distance to the rest
+    //找出vDescriptors中最好的描述子
     int BestMedian = INT_MAX;
     int BestIdx = 0;
     for(size_t i=0;i<N;i++)

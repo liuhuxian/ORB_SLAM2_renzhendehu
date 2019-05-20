@@ -49,6 +49,7 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
 
     const bool bFactor = th!=1.0;
 
+    //遍历vpMapPoints
     for(size_t iMP=0; iMP<vpMapPoints.size(); iMP++)
     {
         MapPoint* pMP = vpMapPoints[iMP];
@@ -248,6 +249,7 @@ int ORBmatcher::SearchByBoW(KeyFrame* pKF,Frame &F, vector<MapPoint*> &vpMapPoin
 
                         const cv::KeyPoint &kp = pKF->mvKeysUn[realIdxKF];
 
+			//如果开启了角度剔除
                         if(mbCheckOrientation)
                         {
                             float rot = kp.angle-F.mvKeys[bestIdxF].angle;
@@ -456,7 +458,7 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
         if(vIndices2.empty())
             continue;
 	
-	//去除F1中il的描述子
+	//获得F1中il的描述子
         cv::Mat d1 = F1.mDescriptors.row(i1);
 	
 	//初始化描述子间最小距离
@@ -530,7 +532,7 @@ int ORBmatcher::SearchForInitialization(Frame &F1, Frame &F2, vector<cv::Point2f
     //其实这里的意思是，F1与F2之间匹配点的角度差应该差不多是一致的
     //于是我们就将匹配点，按照匹配点间的角度差来分成HISTO_LENGTH类，放在rotHist
     //然后剔除，那些角度差和其他大多数匹配点角度差差异较大的点
-    //具体就是，先找出前3多的角度差范围内，然后剔除那些不在这些角度差范围的匹配点
+    //具体就是，先找出前3多的角度差范围，然后剔除那些不在这些角度差范围的匹配点
     if(mbCheckOrientation)
     {
         int ind1=-1;
@@ -1054,6 +1056,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, cv::Mat Scw, const vector<MapPoint *> &vpPoi
     const int nPoints = vpPoints.size();
 
     // For each candidate MapPoint project and match
+    //遍历vpPoints
     for(int iMP=0; iMP<nPoints; iMP++)
     {
         MapPoint* pMP = vpPoints[iMP];
@@ -1105,6 +1108,7 @@ int ORBmatcher::Fuse(KeyFrame *pKF, cv::Mat Scw, const vector<MapPoint *> &vpPoi
         // Search in a radius
         const float radius = th*pKF->mvScaleFactors[nPredictedLevel];
 
+	//可能与pMP匹配的pKF特征点
         const vector<size_t> vIndices = pKF->GetFeaturesInArea(u,v,radius);
 
         if(vIndices.empty())
@@ -1139,6 +1143,8 @@ int ORBmatcher::Fuse(KeyFrame *pKF, cv::Mat Scw, const vector<MapPoint *> &vpPoi
         if(bestDist<=TH_LOW)
         {
             MapPoint* pMPinKF = pKF->GetMapPoint(bestIdx);
+	    //如果bestIdx代表的特征点已经有mappoint匹配了
+	    //那么将pMPinKF设置为坏点并抛弃
             if(pMPinKF)
             {
                 if(!pMPinKF->isBad())

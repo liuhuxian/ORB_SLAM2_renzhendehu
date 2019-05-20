@@ -61,6 +61,7 @@ public:
     void AddObservation(KeyFrame* pKF,size_t idx);
     void EraseObservation(KeyFrame* pKF);
 
+    //返回此MapPoint对应的是哪个pKF中哪个特征点
     int GetIndexInKeyFrame(KeyFrame* pKF);
     //此mappoint是否能被pKF看到
     bool IsInKeyFrame(KeyFrame* pKF);
@@ -121,7 +122,9 @@ public:
 
     // Variables used by loop closing
     long unsigned int mnLoopPointForKF;
+    //发起闭环检测的关键帧
     long unsigned int mnCorrectedByKF;
+    //在loop中是通过mnCorrectedReference关键帧来修正此点的
     long unsigned int mnCorrectedReference; 
     //global BA的优化变量mappoint结果
     cv::Mat mPosGBA;
@@ -148,6 +151,7 @@ protected:
      cv::Mat mDescriptor;
 
      // Reference KeyFrame
+     //生成这个mappoint的关键帧为参考关键帧
      KeyFrame* mpRefKF;
 
      // Tracking counters

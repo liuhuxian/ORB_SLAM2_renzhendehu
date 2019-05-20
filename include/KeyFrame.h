@@ -67,11 +67,11 @@ public:
     void EraseConnection(KeyFrame* pKF);
     
     
-    //更新共视图Covisibility graph,essential graph和spanningtree
+    //更新共视图Covisibility graph,essential graph和spanningtree，以及共视关系
     void UpdateConnections();
-    //更新essential graph
+    //更新 mvpOrderedConnectedKeyFrames,mvOrderedWeights,也就是共视图covisibility
     void UpdateBestCovisibles();
-    //返回此关键帧在Covisibility graph中与之相连接（有共视关系）的节点
+    //返回此关键帧有共视关系的节点
     std::set<KeyFrame *> GetConnectedKeyFrames();
     //返回Covisibility graph中与此节点连接的节点（即关键帧）
     std::vector<KeyFrame* > GetVectorCovisibleKeyFrames();
@@ -90,6 +90,7 @@ public:
     bool hasChild(KeyFrame* pKF);
 
     // Loop Edges
+    //添加一个闭环检测帧
     void AddLoopEdge(KeyFrame* pKF);
     std::set<KeyFrame*> GetLoopEdges();
 
@@ -105,6 +106,7 @@ public:
     std::set<MapPoint*> GetMapPoints();
     //外部接口，此keyframe可以看到哪些mappoint
     std::vector<MapPoint*> GetMapPointMatches();
+    //返回此keyframe可以看到的mappoint，minObs表示返回的mappoint能被共视的最小值
     int TrackedMapPoints(const int &minObs);
     MapPoint* GetMapPoint(const size_t &idx);
 
@@ -133,7 +135,7 @@ public:
     bool isBad();
 
     // Compute Scene Depth (q=2 median). Used in monocular.
-    //返回mappoint在此帧的深度中位数
+    //返回mappoint集合在此帧的深度的中位数
     float ComputeSceneMedianDepth(const int q);
 
     static bool weightComp( int a, int b){
@@ -163,12 +165,13 @@ public:
     const float mfGridElementHeightInv;
 
     // Variables used by the tracking
-    //防止重复添加局部地图关键帧关键帧
+    //防止重复添加局部地图关键帧
     long unsigned int mnTrackReferenceForFrame;
     //在LocalMapping::SearchInNeighbors()中，标记此keyframe将要融合（fuse）的keyframe ID
     long unsigned int mnFuseTargetForKF;
 
     // Variables used by the local mapping
+    //local mapping的local BA在使用此关键帧的标记
     long unsigned int mnBALocalForKF;
     long unsigned int mnBAFixedForKF;
 
@@ -264,7 +267,7 @@ protected:
     std::map<KeyFrame*,int> mConnectedKeyFrameWeights;
     
     //mvpOrderedConnectedKeyFrames和mvOrderedWeights共同组成了论文里的covisibility graph
-    //与此关键帧具有联结关系的关键帧，其顺序按照共视的mappoint数量递减排序
+    //与此关键帧具有连接关系的关键帧，其顺序按照共视的mappoint数量递减排序
     std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;
     //mvpOrderedConnectedKeyFrames中共视的mappoint数量，也就是共视图covisibility graph权重，递减排列
     std::vector<int> mvOrderedWeights;

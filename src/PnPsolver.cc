@@ -93,6 +93,7 @@ PnPsolver::PnPsolver(const Frame &F, const vector<MapPoint*> &vpMapPointMatches)
                 mvP3Dw.push_back(cv::Point3f(Pos.at<float>(0),Pos.at<float>(1), Pos.at<float>(2)));
 
                 mvKeyPointIndices.push_back(i);
+		//后面RANSAC生成随机序列有用
                 mvAllIndices.push_back(idx);               
 
                 idx++;
@@ -164,6 +165,7 @@ cv::Mat PnPsolver::find(vector<bool> &vbInliers, int &nInliers)
 
 cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInliers, int &nInliers)
 {
+    //标志RANSAC循环次数达到最大
     bNoMore = false;
     vbInliers.clear();
     nInliers=0;
@@ -181,13 +183,14 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
     int nCurrentIterations = 0;
     while(mnIterations<mRansacMaxIts || nCurrentIterations<nIterations)
     {
-        nCurrentIterations++;
-        mnIterations++;
+        nCurrentIterations++;// 这个函数中迭代的次数
+        mnIterations++;// 总的迭代次数，默认为最大为300
         reset_correspondences();
 
         vAvailableIndices = mvAllIndices;
 
         // Get min set of points
+	//生成RANSAC所需的随机序列
         for(short i = 0; i < mRansacMinSet; ++i)
         {
             int randi = DUtils::Random::RandomInt(0, vAvailableIndices.size()-1);
@@ -201,6 +204,7 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
         }
 
         // Compute camera pose
+        //计算相机位姿
         compute_pose(mRi, mti);
 
         // Check inliers
@@ -227,6 +231,7 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
             {
                 nInliers = mnRefinedInliers;
                 vbInliers = vector<bool>(mvpMapPointMatches.size(),false);
+		//将mvbRefinedInliers拷贝至vbInliers
                 for(int i=0; i<N; i++)
                 {
                     if(mvbRefinedInliers[i])

@@ -56,7 +56,7 @@ public:
    std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame* pKF, float minScore);
 
    // Relocalization
-   //在KeyFrameDatabase找出与当前帧相似F的候选关键帧，并返回
+   //在重定位时情形下，KeyFrameDatabase找出与当前帧相似F的候选关键帧，并返回
    std::vector<KeyFrame*> DetectRelocalizationCandidates(Frame* F);
 
 protected:

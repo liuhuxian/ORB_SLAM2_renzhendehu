@@ -306,7 +306,7 @@ void KeyFrame::UpdateConnections()
 
     //For all map points in keyframe check in which other keyframes are they seen
     //Increase counter for those keyframes
-    // 计算每一个关键帧都有多少其他关键帧与它存在共视关系，结果放在KFcounter，其实就是论文里的covisibility graph
+    // 计算每一个关键帧都有多少其他关键帧与它存在共视关系，结果放在KFcounter
     //遍历此关键帧可以看到的mappoint
     for(vector<MapPoint*>::iterator vit=vpMP.begin(), vend=vpMP.end(); vit!=vend; vit++)
     {

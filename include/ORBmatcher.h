@@ -51,6 +51,7 @@ public:
 
     // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
     // Used to track the local map (Tracking)
+    //将F里的特征值与vpMapPoints进行匹配，通过投影加速
     int SearchByProjection(Frame &F, const std::vector<MapPoint*> &vpMapPoints, const float th=3);
 
     // Project MapPoints tracked in last frame into the current frame and search matches.
@@ -87,7 +88,7 @@ public:
       * @return                   成功匹配的数量
       */
     int SearchByBoW(KeyFrame *pKF, Frame &F, std::vector<MapPoint*> &vpMapPointMatches);
-    // 匹配pKF1与pKF2之间的特征点并通过bow加速，vpMatches12是匹配特征点对应的MapPoints
+    // 匹配pKF1与pKF2之间的特征点并通过bow加速，vpMatches12是pKF1匹配特征点对应的MapPoints
     int SearchByBoW(KeyFrame *pKF1, KeyFrame* pKF2, std::vector<MapPoint*> &vpMatches12);
 
     // Matching for the Map Initialization (only used in the monocular case)
@@ -122,6 +123,8 @@ public:
     int Fuse(KeyFrame* pKF, const vector<MapPoint *> &vpMapPoints, const float th=3.0);
 
     // Project MapPoints into KeyFrame using a given Sim3 and search for duplicated MapPoints.
+    //vpPoints通过Scw投影到pKF，与pKF中的特征点匹配。如果匹配的pKF中的特征点本身有就的匹配mappoint，就用vpPoints替代它。
+    //vpReplacePoint大小与vpPoints一致，储存着被替换下来的mappoint
     int Fuse(KeyFrame* pKF, cv::Mat Scw, const std::vector<MapPoint*> &vpPoints, float th, vector<MapPoint *> &vpReplacePoint);
 
 public:

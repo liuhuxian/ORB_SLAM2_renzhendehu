@@ -54,7 +54,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
 
     g2o::SparseOptimizer optimizer;
     //typedef BlockSolver< BlockSolverTraits<6, 3> > BlockSolver_6_3;
-    //这表明误差变量为6维，误差值为3维
+    //这表明误差变量为6维，误差项为3维
     g2o::BlockSolver_6_3::LinearSolverType * linearSolver;
 
     linearSolver = new g2o::LinearSolverEigen<g2o::BlockSolver_6_3::PoseMatrixType>();
@@ -64,6 +64,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     g2o::OptimizationAlgorithmLevenberg* solver = new g2o::OptimizationAlgorithmLevenberg(solver_ptr);
     optimizer.setAlgorithm(solver);
 
+    //是否开启强制停止开关
     if(pbStopFlag)
         optimizer.setForceStopFlag(pbStopFlag);
 
@@ -215,7 +216,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     // Recover optimized data
 
     //Keyframes
-    //遍历所有关键帧
+    //遍历所有关键帧，根据优化结果更新关键帧的位姿
     for(size_t i=0; i<vpKFs.size(); i++)
     {
         KeyFrame* pKF = vpKFs[i];
@@ -238,7 +239,7 @@ void Optimizer::BundleAdjustment(const vector<KeyFrame *> &vpKFs, const vector<M
     }
 
     //Points
-    //遍历取出优化变量结果
+    //遍历取出优化变量结果，更新mappoint
     for(size_t i=0; i<vpMP.size(); i++)
     {
         if(vbNotIncludedMP[i])
@@ -832,6 +833,8 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     // Setup optimizer
     g2o::SparseOptimizer optimizer;
     optimizer.setVerbose(false);
+    // typedef BlockSolver< BlockSolverTraits<7, 3> > BlockSolver_7_3; 
+    //这表明误差变量为7维，误差项为3维
     g2o::BlockSolver_7_3::LinearSolverType * linearSolver =
            new g2o::LinearSolverEigen<g2o::BlockSolver_7_3::PoseMatrixType>();
     g2o::BlockSolver_7_3 * solver_ptr= new g2o::BlockSolver_7_3(linearSolver);
@@ -852,6 +855,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     const int minFeat = 100;
 
     // Set KeyFrame vertices
+    //将map中的所有关键帧添加为g2o的顶点
     for(size_t i=0, iend=vpKFs.size(); i<iend;i++)
     {
         KeyFrame* pKF = vpKFs[i];
@@ -863,6 +867,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
 
         LoopClosing::KeyFrameAndPose::const_iterator it = CorrectedSim3.find(pKF);
 
+	//表示CorrectedSim3.find(pKF)寻找成功
         if(it!=CorrectedSim3.end())
         {
             vScw[nIDi] = it->second;
@@ -890,6 +895,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     }
 
 
+    //在g2o中已经形成误差边的两个顶点，firstid数较小的顶点
     set<pair<long unsigned int,long unsigned int> > sInsertedEdges;
 
     const Eigen::Matrix<double,7,7> matLambda = Eigen::Matrix<double,7,7>::Identity();
@@ -910,6 +916,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
                 continue;
 
             const g2o::Sim3 Sjw = vScw[nIDj];
+	    //关键帧i与j之间的位姿
             const g2o::Sim3 Sji = Sjw * Swi;
 
             g2o::EdgeSim3* e = new g2o::EdgeSim3();
@@ -926,6 +933,8 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     }
 
     // Set normal edges
+    //遍历vpKFs，将vpKFs和其在spanningtree中的父节点在g2o图中连接起来形成一条误差边；
+    //将vpKFs和其形成闭环的帧在g2o图中连接起来形成一条误差边
     for(size_t i=0, iend=vpKFs.size(); i<iend; i++)
     {
         KeyFrame* pKF = vpKFs[i];
@@ -944,6 +953,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
         KeyFrame* pParentKF = pKF->GetParent();
 
         // Spanning tree edge
+	//将vpKFs和其在spanningtree中的父节点在g2o图中连接起来形成一条误差边；
         if(pParentKF)
         {
             int nIDj = pParentKF->mnId;
@@ -970,6 +980,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
 
         // Loop edges
         const set<KeyFrame*> sLoopEdges = pKF->GetLoopEdges();
+	//将vpKFs和其形成闭环的帧在g2o图中连接起来形成一条误差边
         for(set<KeyFrame*>::const_iterator sit=sLoopEdges.begin(), send=sLoopEdges.end(); sit!=send; sit++)
         {
             KeyFrame* pLKF = *sit;
@@ -995,14 +1006,17 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
         }
 
         // Covisibility graph edges
+        //pKF与在Covisibility graph中与pKF连接的关键帧形成一条误差边（如果之前没有添加过的话）
         const vector<KeyFrame*> vpConnectedKFs = pKF->GetCovisiblesByWeight(minFeat);
         for(vector<KeyFrame*>::const_iterator vit=vpConnectedKFs.begin(); vit!=vpConnectedKFs.end(); vit++)
         {
             KeyFrame* pKFn = *vit;
+	    //避免和前面的边添加重复
             if(pKFn && pKFn!=pParentKF && !pKF->hasChild(pKFn) && !sLoopEdges.count(pKFn))
             {
                 if(!pKFn->isBad() && pKFn->mnId<pKF->mnId)
                 {
+		    //为避免重复添加，先查找
                     if(sInsertedEdges.count(make_pair(min(pKF->mnId,pKFn->mnId),max(pKF->mnId,pKFn->mnId))))
                         continue;
 
@@ -1035,6 +1049,7 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
     unique_lock<mutex> lock(pMap->mMutexMapUpdate);
 
     // SE3 Pose Recovering. Sim3:[sR t;0 1] -> SE3:[R t/s;0 1]
+    //更新优化后的闭环检测位姿
     for(size_t i=0;i<vpKFs.size();i++)
     {
         KeyFrame* pKFi = vpKFs[i];
@@ -1092,6 +1107,8 @@ void Optimizer::OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* p
 int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &vpMatches1, g2o::Sim3 &g2oS12, const float th2, const bool bFixScale)
 {
     g2o::SparseOptimizer optimizer;
+    //  typedef BlockSolver< BlockSolverTraits<Eigen::Dynamic, Eigen::Dynamic> > BlockSolverX;
+    //这表明误差变量和误差项的维度是动态的
     g2o::BlockSolverX::LinearSolverType * linearSolver;
 
     linearSolver = new g2o::LinearSolverDense<g2o::BlockSolverX::PoseMatrixType>();
@@ -1112,11 +1129,14 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     const cv::Mat t2w = pKF2->GetTranslation();
 
     // Set Sim3 vertex
+    //添加sim3位姿顶点误差变量
     g2o::VertexSim3Expmap * vSim3 = new g2o::VertexSim3Expmap();    
     vSim3->_fix_scale=bFixScale;
+    //设置顶点的初始值
     vSim3->setEstimate(g2oS12);
     vSim3->setId(0);
     vSim3->setFixed(false);
+    //将内参导入顶点
     vSim3->_principle_point1[0] = K1.at<float>(0,2);
     vSim3->_principle_point1[1] = K1.at<float>(1,2);
     vSim3->_focal_length1[0] = K1.at<float>(0,0);
@@ -1129,6 +1149,7 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
 
     // Set MapPoint vertices
     const int N = vpMatches1.size();
+    //获得 pKF1的所有mappoint
     const vector<MapPoint*> vpMapPoints1 = pKF1->GetMapPointMatches();
     vector<g2o::EdgeSim3ProjectXYZ*> vpEdges12;
     vector<g2o::EdgeInverseSim3ProjectXYZ*> vpEdges21;
@@ -1142,6 +1163,7 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
 
     int nCorrespondences = 0;
 
+    //将匹配转化为归一化3d点作为g2o的顶点
     for(int i=0; i<N; i++)
     {
         if(!vpMatches1[i])
@@ -1184,13 +1206,16 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
         nCorrespondences++;
 
         // Set edge x1 = S12*X2
+	//添加误差项边
         Eigen::Matrix<double,2,1> obs1;
         const cv::KeyPoint &kpUn1 = pKF1->mvKeysUn[i];
         obs1 << kpUn1.pt.x, kpUn1.pt.y;
 
         g2o::EdgeSim3ProjectXYZ* e12 = new g2o::EdgeSim3ProjectXYZ();
+	//将e12边和vertex(id2)绑定
         e12->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id2)));
         e12->setVertex(1, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(0)));
+	//设定初始值
         e12->setMeasurement(obs1);
         const float &invSigmaSquare1 = pKF1->mvInvLevelSigma2[kpUn1.octave];
         e12->setInformation(Eigen::Matrix2d::Identity()*invSigmaSquare1);
@@ -1205,6 +1230,7 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
         const cv::KeyPoint &kpUn2 = pKF2->mvKeysUn[i2];
         obs2 << kpUn2.pt.x, kpUn2.pt.y;
 
+	//注意这个的边类型和上面不一样
         g2o::EdgeInverseSim3ProjectXYZ* e21 = new g2o::EdgeInverseSim3ProjectXYZ();
 
         e21->setVertex(0, dynamic_cast<g2o::OptimizableGraph::Vertex*>(optimizer.vertex(id1)));
@@ -1228,6 +1254,7 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
     optimizer.optimize(5);
 
     // Check inliers
+    //把不是inliner的边剔除出去
     int nBad=0;
     for(size_t i=0; i<vpEdges12.size();i++)
     {
@@ -1258,11 +1285,12 @@ int Optimizer::OptimizeSim3(KeyFrame *pKF1, KeyFrame *pKF2, vector<MapPoint *> &
         return 0;
 
     // Optimize again only with inliers
-
+    //剔除边后再次优化
     optimizer.initializeOptimization();
     optimizer.optimize(nMoreIterations);
 
     int nIn = 0;
+    //看哪些匹配是inliner
     for(size_t i=0; i<vpEdges12.size();i++)
     {
         g2o::EdgeSim3ProjectXYZ* e12 = vpEdges12[i];
