@@ -67,6 +67,9 @@ public:
     int static PoseOptimization(Frame* pFrame);
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
+    //顶点为map中所有keyframe
+    //边为LoopConnections中的连接关系
+    //essential graph中的边：1.扩展树（spanning tree）连接关系，2.闭环连接关系,3.共视关系非常好的连接关系（共视点为100）
     void static OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* pCurKF,
                                        const LoopClosing::KeyFrameAndPose &NonCorrectedSim3,
                                        const LoopClosing::KeyFrameAndPose &CorrectedSim3,
