@@ -104,7 +104,7 @@ public:
     void EraseMapPointMatch(MapPoint* pMP);
     void ReplaceMapPointMatch(const size_t &idx, MapPoint* pMP);
     std::set<MapPoint*> GetMapPoints();
-    //外部接口，此keyframe可以看到哪些mappoint
+    //外部接口,大小是mvKeys大小，表示mappoint和此帧特征点的联系。如果没有联系则为NULL
     std::vector<MapPoint*> GetMapPointMatches();
     //返回此keyframe可以看到的mappoint，minObs表示返回的mappoint能被共视的最小值
     int TrackedMapPoints(const int &minObs);
@@ -253,6 +253,7 @@ protected:
 
     // MapPoints associated to keypoints
     //此keyframe可以看到哪些mappoint
+    //大小是mvKeys大小，表示mappoint和此帧特征点的联系。如果没有联系则为NULL
     std::vector<MapPoint*> mvpMapPoints;
 
     // BoW

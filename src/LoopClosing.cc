@@ -131,7 +131,7 @@ bool LoopClosing::DetectLoop()
     // We will impose loop candidates to have a higher similarity than this
     //遍历所有共视关键帧，计算当前关键帧与每个共视关键的bow相似度得分，计算minScore
     
-    //返回essential graph中与此节点连接的节点（即关键帧）
+    //返回Covisibility graph中与此节点连接的节点（即关键帧）
     const vector<KeyFrame*> vpConnectedKeyFrames = mpCurrentKF->GetVectorCovisibleKeyFrames();
     const DBoW2::BowVector &CurrentBowVec = mpCurrentKF->mBowVec;
     float minScore = 1;
@@ -634,24 +634,31 @@ void LoopClosing::CorrectLoop()
 
 
     // After the MapPoint fusion, new links in the covisibility graph will appear attaching both sides of the loop
-    //计算loopconnnections
+
     map<KeyFrame*, set<KeyFrame*> > LoopConnections;
-    //遍历和闭环帧相连关键帧mvpCurrentConnectedKFs,把
+    //mappoint融合后，在covisibility graph中，mvpCurrentConnectedKFs附近会出现新的连接
+    //遍历和闭环帧相连关键帧mvpCurrentConnectedKFs,只将mvpCurrentConnectedKFs节点与其他帧出现的新连接存入LoopConnections
+    //由于这些连接是新的连接，所以在OptimizeEssentialGraph()需要被当做误差项优化
     for(vector<KeyFrame*>::iterator vit=mvpCurrentConnectedKFs.begin(), vend=mvpCurrentConnectedKFs.end(); vit!=vend; vit++)
     {
         KeyFrame* pKFi = *vit;
+	//pKFi在covisibility graph的旧连接
         vector<KeyFrame*> vpPreviousNeighbors = pKFi->GetVectorCovisibleKeyFrames();
 
         // Update connections. Detect new links.
+	//更新pKFi在covisibility graph的连接
         pKFi->UpdateConnections();
 	
+	//pKFi在covisibility graph的新的加旧的连接
         LoopConnections[pKFi]=pKFi->GetConnectedKeyFrames();
 	
+	//剔除旧的连接
         for(vector<KeyFrame*>::iterator vit_prev=vpPreviousNeighbors.begin(), vend_prev=vpPreviousNeighbors.end(); vit_prev!=vend_prev; vit_prev++)
         {
             LoopConnections[pKFi].erase(*vit_prev);
         }
         
+        //剔除mvpCurrentConnectedKFs
         for(vector<KeyFrame*>::iterator vit2=mvpCurrentConnectedKFs.begin(), vend2=mvpCurrentConnectedKFs.end(); vit2!=vend2; vit2++)
         {
             LoopConnections[pKFi].erase(*vit2);

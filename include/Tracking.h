@@ -147,7 +147,7 @@ protected:
     void CheckReplacedInLastFrame();
     
     /**
-    * 将参考帧关键帧mpReferenceKF的位姿作为当前帧mCurrentFrame的初始位姿；
+    * 将将上一帧的位姿作为当前帧mCurrentFrame的初始位姿；
     * 匹配参考帧关键帧中有对应mappoint的特征点与当前帧特征点，通过dbow加速匹配；
     * 以上一帧的位姿态为初始值，优化3D点重投影误差，得到更精确的位姿以及剔除错误的特征点匹配；
     * @return 如果匹配数大于10，返回true
@@ -184,6 +184,16 @@ protected:
      */
     void UpdateLocalKeyFrames();
 
+    /**
+    * @brief 对mvpLocalKeyFrames，mvpLocalMapPoints进行跟踪
+    * 
+    * 1. 更新局部地图，包括局部关键帧和关键点
+    * 2. 对局部MapPoints进行投影匹配
+    * 3. 根据匹配对估计当前帧的姿态
+    * 4. 根据姿态剔除误匹配
+    * @return true if success
+    * @see V-D track Local Map
+    */
     bool TrackLocalMap();
     //在局部地图的mappoint中查找在当前帧视野范围内的点，将视野范围内的点和当前帧的特征点进行投影匹配
     void SearchLocalPoints();
@@ -221,9 +231,12 @@ protected:
     Initializer* mpInitializer;
 
     //Local Map
-    //参考关键帧，和当前帧共视程度最高的关键帧
+    //参考关键帧
+    //在CreateNewKeyFrame()中，为当前帧
+    //在UpdateLocalKeyFrames()中，为当前帧共视程度最高的关键帧
     KeyFrame* mpReferenceKF;
     std::vector<KeyFrame*> mvpLocalKeyFrames;
+    //mvpLocalKeyFrames的所有关键帧的所有匹配的mappoint集合
     std::vector<MapPoint*> mvpLocalMapPoints;
     
     // System
@@ -256,6 +269,7 @@ protected:
     float mDepthMapFactor;
 
     //Current matches in frame
+    //当前的匹配
     int mnMatchesInliers;
 
     //Last Frame, KeyFrame and Relocalisation Info

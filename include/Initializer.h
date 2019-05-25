@@ -79,7 +79,7 @@ private:
     void FindFundamental(vector<bool> &vbInliers, float &score, cv::Mat &F21);
     //视觉slam十四讲P147,7.3.3.单应矩阵
     //通过vP1，vP2求得单应矩阵并返回
-    cv::Mat Compute H21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2);
+    cv::Mat ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2);
     //通过vP1，vP2求得基础矩阵并返回
     cv::Mat ComputeF21(const vector<cv::Point2f> &vP1, const vector<cv::Point2f> &vP2);
 

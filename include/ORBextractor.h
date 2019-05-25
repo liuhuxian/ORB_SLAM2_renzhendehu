@@ -34,9 +34,15 @@ class ExtractorNode
 public:
     ExtractorNode():bNoMore(false){}
 
+    //分裂此节点为4个子节点
+    //算出4个子节点的边界，并初始化它们
+    //将父节点的关节的按照位置分配给子节点
+    //标记只有一个关键点的子节点
     void DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4);
 
+    //此节点包含的关键点
     std::vector<cv::KeyPoint> vKeys;
+    //节点的边界
     cv::Point2i UL, UR, BL, BR;
     std::list<ExtractorNode>::iterator lit;
     bool bNoMore;

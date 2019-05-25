@@ -504,6 +504,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
     const int halfY = ceil(static_cast<float>(BR.y-UL.y)/2);
 
     //Define boundaries of childs
+    //计算4个子节点的边界
     n1.UL = UL;
     n1.UR = cv::Point2i(UL.x+halfX,UL.y);
     n1.BL = cv::Point2i(UL.x,UL.y+halfY);
@@ -529,6 +530,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
     n4.vKeys.reserve(vKeys.size());
 
     //Associate points to childs
+    //将父节点的关键点分配给子节点
     for(size_t i=0;i<vKeys.size();i++)
     {
         const cv::KeyPoint &kp = vKeys[i];
@@ -545,6 +547,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
             n4.vKeys.push_back(kp);
     }
 
+    //如果子节点只有一个关键点就需要标记
     if(n1.vKeys.size()==1)
         n1.bNoMore = true;
     if(n2.vKeys.size()==1)
@@ -569,7 +572,7 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
     //新建一个双向链表，其实后面大部分操作是改变这个
     list<ExtractorNode> lNodes;
 
-    //vpIniNodes在将vToDistributeKeys分配到父节点中时起索引作用
+    //vpIniNodes在将vToDistributeKeys分配到父节点中时起位置索引作用
     vector<ExtractorNode*> vpIniNodes;
     vpIniNodes.resize(nIni);
 
@@ -598,7 +601,7 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
     list<ExtractorNode>::iterator lit = lNodes.begin();
 
     //现在lNodes中只放有根节点，变量根节点，如果根节点中关键点个数为1
-    //那么将这个节点的bNoMore，表示这个节点不能再分裂了。
+    //那么将这个节点的bNoMore设置为true，表示这个节点不能再分裂了。
     //如果为空，那么就删除这个节点
     while(lit!=lNodes.end())
     {

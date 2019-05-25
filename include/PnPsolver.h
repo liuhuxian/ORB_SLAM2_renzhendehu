@@ -61,31 +61,38 @@ namespace ORB_SLAM2
 class PnPsolver {
  public:
    /**构造函数
-    * @param vpMapPointMatches[i]表示F中第i个特征点所指向的mappoint
+    * @param vpMapPointMatches 保存F中的特征点与与哪些mappoint匹配，vpMapPointMatches[i]表示F中第i个特征点所指向的mappoint
     */
   PnPsolver(const Frame &F, const vector<MapPoint*> &vpMapPointMatches);
 
   ~PnPsolver();
 
+  //设置参数
   void SetRansacParameters(double probability = 0.99, int minInliers = 8 , int maxIterations = 300, int minSet = 4, float epsilon = 0.4,
                            float th2 = 5.991);
 
   cv::Mat find(vector<bool> &vbInliers, int &nInliers);
 
+  //循环nIterations次执行epnp算法
   cv::Mat iterate(int nIterations, bool &bNoMore, vector<bool> &vbInliers, int &nInliers);
 
  private:
 
+   //对于此次RANSAC计算的epnp求得的位姿，原先F中的特征点与mappoint的匹配还有哪些成立
+   //更新mnInliersi
   void CheckInliers();
+  //以mvbBestInliers中的点对通过epnp计算位姿而不是先前使用4个点对计算位姿
+  //如果计算的结果对应的inliner超过阈值mRansacMinInliers，则返回成功
   bool Refine();
 
   // Functions from the original EPnP code
   void set_maximum_number_of_correspondences(const int n);
   void reset_correspondences(void);
+  // 将对应的3D-2D压入到pws和us
   void add_correspondence(const double X, const double Y, const double Z,
               const double u, const double v);
 
-  //计算相机位姿
+  //通过epnp计算相机位姿
   double compute_pose(double R[3][3], double T[3]);
 
   void relative_error(double & rot_err, double & transl_err,
@@ -95,6 +102,7 @@ class PnPsolver {
   void print_pose(const double R[3][3], const double t[3]);
   double reprojection_error(const double R[3][3], const double t[3]);
 
+  //获得EPnP算法中的四个控制点
   void choose_control_points(void);
   void compute_barycentric_coordinates(void);
   void fill_M(CvMat * M, const int row, const double * alphas, const double u, const double v);
@@ -129,25 +137,30 @@ class PnPsolver {
   void mat_to_quat(const double R[3][3], double q[4]);
 
 
+  //相机内参
   double uc, vc, fu, fv;
   //pws,us为RANSAC生成的3d，2d坐标点的容器
+  //alphas为pws，pcs在控制点下的hd坐标
+  //pws，pcs分别为3d点的世界坐标和相机坐标
   double * pws, * us, * alphas, * pcs;
   int maximum_number_of_correspondences;
   int number_of_correspondences;
 
+  //4个控制点在世界坐标系和相机坐标系下的坐标
   double cws[4][3], ccs[4][3];
   double cws_determinant;
 
+  //mvpMapPointMatches[i]表示F中第i个特征点所指向的mappoint
   vector<MapPoint*> mvpMapPointMatches;
 
   // 2D Points
   //F的mappoint对应的F的特征点的像素坐标
   vector<cv::Point2f> mvP2D;
-  //与高斯金字塔有关
+  //与高斯金字塔有关,F的特征点数量大小
   vector<float> mvSigma2;
 
   // 3D Points
-  //F的mappoint的3d世界坐标
+  //F的mappoint的3d世界坐标，F的特征点数量大小
   vector<cv::Point3f> mvP3Dw;
 
   // Index in Frame
@@ -155,36 +168,47 @@ class PnPsolver {
   vector<size_t> mvKeyPointIndices;
 
   // Current Estimation
+  //当前估计的位姿
   double mRi[3][3];
   double mti[3];
   cv::Mat mTcwi;
+  //对于每次RANSAC计算出的位姿，哪些点对属于inliners
   vector<bool> mvbInliersi;
+  //mvbInliersi中属于true的有多少
   int mnInliersi;
 
   // Current Ransac State
   int mnIterations;
+  //mnBestInliers对应那次RANSAC的mvbInliersi
   vector<bool> mvbBestInliers;
+  //已执行的RANSAC中，最大的mnInliersi值
   int mnBestInliers;
+  //mnBestInliers对应的那次RANSAC所得的位姿
   cv::Mat mBestTcw;
 
   // Refined
   cv::Mat mRefinedTcw;
+  //Refine()中算出的mnInliersi
   vector<bool> mvbRefinedInliers;
   int mnRefinedInliers;
 
   // Number of Correspondences
+  //匹配点对的数量
   int N;
 
   // Indices for random selection [0 .. N-1]
+  //[0,..,N]的序列，N为F的特征点数量大小
   vector<size_t> mvAllIndices;
 
   // RANSAC probability
   double mRansacProb;
 
   // RANSAC min inliers
+  //一次RANSAC迭代成功的阈值
   int mRansacMinInliers;
 
   // RANSAC max iterations
+  //RANSAC最大累计迭代次数阈值
   int mRansacMaxIts;
 
   // RANSAC expected inliers/total ratio
@@ -194,6 +218,7 @@ class PnPsolver {
   float mRansacTh;
 
   // RANSAC Minimun Set used at each iteration
+  //mRansacMinSet为每次RANSAC需要的特征点数
   int mRansacMinSet;
 
   // Max square error associated with scale level. Max error = th*th*sigma(level)*sigma(level)

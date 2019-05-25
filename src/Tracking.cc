@@ -257,6 +257,7 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     }
     
     //如果tracking没有初始化，或者没有图片（也是没有初始化），则新建一个Frame对象
+    //使用了不同的```ORBextractor```来构建```Frame```，是应为在初始化阶段的帧需要跟多的特征点
     if(mState==NOT_INITIALIZED || mState==NO_IMAGES_YET)
         mCurrentFrame = Frame(mImGray,timestamp,mpIniORBextractor,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
     else
@@ -268,7 +269,7 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
     return mCurrentFrame.mTcw.clone();
 }
 
-void Tracking::Track()
+void Tracking:: Track()
 {
     // 如果图像复位过、或者第一次运行，则为NO_IMAGE_YET状态
     if(mState==NO_IMAGES_YET)
@@ -856,7 +857,7 @@ bool Tracking::TrackReferenceKeyFrame()
         return false;
 
     mCurrentFrame.mvpMapPoints = vpMapPointMatches;
-    //将上一帧的位姿态作为当前帧位姿的初始值，在PoseOptimization可以收敛快一些
+    //将上一帧的位姿作为当前帧位姿的初始值，在PoseOptimization可以收敛快一些
     mCurrentFrame.SetPose(mLastFrame.mTcw);
     
     //通过优化3D-2D的重投影误差来获得位姿
@@ -1035,16 +1036,7 @@ bool Tracking::TrackWithMotionModel()
 
     return nmatchesMap>=10;
 }
-/**
- * @brief 对Local Map的MapPoints进行跟踪
- * 
- * 1. 更新局部地图，包括局部关键帧和关键点
- * 2. 对局部MapPoints进行投影匹配
- * 3. 根据匹配对估计当前帧的姿态
- * 4. 根据姿态剔除误匹配
- * @return true if success
- * @see V-D track Local Map
- */
+
 bool Tracking::TrackLocalMap()
 {
     // We have an estimation of the camera pose and some map points tracked in the frame.
@@ -1088,6 +1080,8 @@ bool Tracking::TrackLocalMap()
     // Decide if the tracking was succesful
     // More restrictive if there was a relocalization recently
     // 决定是否跟踪成功
+    //如果当前帧和上一次重定位太近
+    //或者当前帧特征点与mappoint的匹配数太少
     if(mCurrentFrame.mnId<mnLastRelocFrameId+mMaxFrames && mnMatchesInliers<50)
         return false;
 
@@ -1152,8 +1146,10 @@ bool Tracking::NeedNewKeyFrame()
         thRefRatio = 0.9f;
 
     // Condition 1a: More than "MaxFrames" have passed from last keyframe insertion
+    //和上一个关键帧间隔需要大于mMaxFrames
     const bool c1a = mCurrentFrame.mnId>=mnLastKeyFrameId+mMaxFrames;
     // Condition 1b: More than "MinFrames" have passed and Local Mapping is idle
+    //如果Local Mapping空闲，且和上一个关键帧间隔需要大于mMinFrames
     const bool c1b = (mCurrentFrame.mnId>=mnLastKeyFrameId+mMinFrames && bLocalMappingIdle);
     //Condition 1c: tracking is weak
     const bool c1c =  mSensor!=System::MONOCULAR && (mnMatchesInliers<nRefMatches*0.25 || bNeedToInsertClose) ;
@@ -1307,7 +1303,7 @@ void Tracking::SearchLocalPoints()
     int nToMatch=0;
 
     // Project points in frame and check its visibility
-    //遍历刚才更新的mvpLocalMapPoints
+    //遍历刚才更新的mvpLocalMapPoints，筛选哪些不在视野范围内的mappoint
     for(vector<MapPoint*>::iterator vit=mvpLocalMapPoints.begin(), vend=mvpLocalMapPoints.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
@@ -1316,6 +1312,7 @@ void Tracking::SearchLocalPoints()
         if(pMP->isBad())
             continue;
         // Project (this fills MapPoint variables for matching)
+	//如果此mappoint点在视野范围内
         if(mCurrentFrame.isInFrustum(pMP,0.5))
         {
             pMP->IncreaseVisible();
@@ -1539,6 +1536,7 @@ bool Tracking::Relocalization()
     //为未被剔除的关键帧就新建PnPsolver，准备在后面进行pnp
     for(int i=0; i<nKFs; i++)
     {
+	//候选帧
         KeyFrame* pKF = vpCandidateKFs[i];
         if(pKF->isBad())
             vbDiscarded[i] = true;
@@ -1566,6 +1564,12 @@ bool Tracking::Relocalization()
     bool bMatch = false;
     ORBmatcher matcher2(0.9,true);
 
+    //大概步骤是这样的，小循环for不断的遍历剩下的nCandidates个的候选帧，这些候选帧对应有各自的PnPsolvers
+    //第i次for循环所对应的vpPnPsolvers[i]就会执行5次RANSAC循环求解出5个位姿。
+    //通过计算5个位姿对应的匹配点的inliner数量来判断位姿的好坏。如果这5个位姿比记录中的最好位姿更好，更新最好位姿以及对应的匹配点哪些点是inliner
+    //如果最好的那个位姿inliner超过阈值，或者vpPnPsolvers[i]RANSAC累计迭代次数超过阈值，都会把位姿拷贝给Tcw。否则Tcw为空
+    //如果Tcw为空，那么就循环计算下一个vpPnPsolvers[i+1]
+    //通过5次RANSAC求解位姿后，如果Tcw不为空，这继续判断它是否和当前帧匹配。
     while(nCandidates>0 && !bMatch)
     {
 	//遍历候选帧
@@ -1575,12 +1579,15 @@ bool Tracking::Relocalization()
                 continue;
 
             // Perform 5 Ransac Iterations
+	    //此次RANSAC会计算出一个位姿，在这个位姿下，mCurrentFrame中的特征点哪些是有mappoint匹配的，也就是哪些是inliner
+	    //vbInliers大小是mCurrentFrame中的特征点数量大小
             vector<bool> vbInliers;
+	    //vbInliers大小
             int nInliers;
             bool bNoMore;
 
             PnPsolver* pSolver = vpPnPsolvers[i];
-	    //通过EPnP算法估计姿态
+	    //通过EPnP算法估计姿态，有5次RANSAC循环
             cv::Mat Tcw = pSolver->iterate(5,bNoMore,vbInliers,nInliers);
 
             // If Ransac reachs max. iterations discard keyframe
@@ -1589,9 +1596,12 @@ bool Tracking::Relocalization()
             {
                 vbDiscarded[i]=true;
                 nCandidates--;
+		//认真的虎注释：这里是不是应该加一个continue？
             }
 
             // If a Camera Pose is computed, optimize
+            //相机姿态算出来有两种情况，一种是在RANSAC累计迭代次数没有达到mRansacMaxIts之前，找到了一个复合要求的位姿
+            //另一种情况是RANSAC累计迭代次数到达了最大mRansacMaxIts
             //如果相机姿态已经算出来了，优化它
             if(!Tcw.empty())
             {
@@ -1599,14 +1609,15 @@ bool Tracking::Relocalization()
 
                 set<MapPoint*> sFound;
 
+		//np为mCurrentFrame的特征点数量
                 const int np = vbInliers.size();
 
-		//将 pSolver->iterate算出的vbInliers[j]对应的mappoint放入mCurrentFrame.mvpMapPoints[j]中
+		//根据vbInliers更新mCurrentFrame.mvpMapPoints，也就是根据vbInliers更新mCurrentFrame的特征点与哪些mappoint匹配
+		//并记下当前mCurrentFrame与哪些mappoint匹配到sFound，以便后面快速查询
                 for(int j=0; j<np; j++)
                 {
                     if(vbInliers[j])
                     {
-			//
                         mCurrentFrame.mvpMapPoints[j]=vvpMapPointMatches[i][j];
                         sFound.insert(vvpMapPointMatches[i][j]);
                     }
@@ -1614,6 +1625,7 @@ bool Tracking::Relocalization()
                         mCurrentFrame.mvpMapPoints[j]=NULL;
                 }
 
+                //BA优化位姿
                 int nGood = Optimizer::PoseOptimization(&mCurrentFrame);
 
                 if(nGood<10)
@@ -1625,29 +1637,41 @@ bool Tracking::Relocalization()
                         mCurrentFrame.mvpMapPoints[io]=static_cast<MapPoint*>(NULL);
 
                 // If few inliers, search by projection in a coarse window and optimize again
+		// 如果内点较少
                 if(nGood<50)
                 {
+		    // mCurrentFrame中特征点已经匹配好一些mappoint在sFound中，如果内点较少,mCurrentFrame想要更多的mappoint匹配
+		    //于是通过matcher2.SearchByProjection函数将vpCandidateKFs[i]的mappoint悉数投影到CurrentFrame再就近搜索特征点进行匹配
+		    //mCurrentFrame返回得到通过此函数匹配到的新mappoint的个数
                     int nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,10,100);
 
+		    //如果目前mCurrentFrame匹配到的mappoint个数超过50
                     if(nadditional+nGood>=50)
                     {
+			//优化位姿，返回(nadditional+nGood)有多少点是inliner
                         nGood = Optimizer::PoseOptimization(&mCurrentFrame);
 
                         // If many inliers but still not enough, search by projection again in a narrower window
                         // the camera has been already optimized with many points
+			//如果nGood不够多，那缩小搜索框重复再匹配一次
                         if(nGood>30 && nGood<50)
                         {
+			    //更新sFound，也就是目前mCurrentFrame与哪些mappoint匹配
                             sFound.clear();
                             for(int ip =0; ip<mCurrentFrame.N; ip++)
                                 if(mCurrentFrame.mvpMapPoints[ip])
                                     sFound.insert(mCurrentFrame.mvpMapPoints[ip]);
+			    //缩小搜索框重复再匹配一次,返回这个新得到的匹配数
                             nadditional =matcher2.SearchByProjection(mCurrentFrame,vpCandidateKFs[i],sFound,3,64);
 
                             // Final optimization
+			    //如果目前mCurrentFrame匹配到的mappoint个数超过20
                             if(nGood+nadditional>=50)
                             {
+				//位姿优化，可能又会有些匹配消失
                                 nGood = Optimizer::PoseOptimization(&mCurrentFrame);
 
+				//将刚才位姿优化得到的outliner匹配更新
                                 for(int io =0; io<mCurrentFrame.N; io++)
                                     if(mCurrentFrame.mvbOutlier[io])
                                         mCurrentFrame.mvpMapPoints[io]=NULL;

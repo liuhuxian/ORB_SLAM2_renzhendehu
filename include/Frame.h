@@ -47,9 +47,11 @@ public:
     Frame();
 
     // Copy constructor.
+    //拷贝构造函数
     Frame(const Frame &frame);
 
     // Constructor for stereo cameras.
+    //双目构造函数
     Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Constructor for RGB-D cameras.
@@ -61,6 +63,7 @@ public:
     Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
 
     // Extract ORB on the image. 0 for left image and 1 for right image.
+    //提取图片的ORB，0为左图，1为右图
     void ExtractORB(int flag, const cv::Mat &im);
 
     // Compute Bag of Words representation.
@@ -200,7 +203,7 @@ public:
     long unsigned int mnId;
 
     // Reference Keyframe.
-    //参考关键帧
+    //参考关键帧，有共视的mappoint关键帧共视程度最高（共视的mappoint数量最多）的关键帧
     KeyFrame* mpReferenceKF;
 
     // Scale pyramid info.

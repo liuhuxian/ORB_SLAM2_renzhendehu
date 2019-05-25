@@ -52,6 +52,7 @@ public:
     // Search matches between Frame keypoints and projected MapPoints. Returns number of matches
     // Used to track the local map (Tracking)
     //将F里的特征值与vpMapPoints进行匹配，通过投影加速
+    //返回通过此函数匹配成功的数量
     int SearchByProjection(Frame &F, const std::vector<MapPoint*> &vpMapPoints, const float th=3);
 
     // Project MapPoints tracked in last frame into the current frame and search matches.
@@ -68,6 +69,16 @@ public:
 
     // Project MapPoints seen in KeyFrame into the Frame and search matches.
     // Used in relocalisation (Tracking)
+    /**在Tracking里的relocalisation中使用
+     * CurrentFrame中特征点已经匹配好一些mappoint在sAlreadyFound中，通过此函数将pKF悉数投影到CurrentFrame再就近搜索特征点进行匹配
+     * 也就是说CurrentFrame想通过这个函数在pKF的mappoint集合中匹配上更多的mappoint点
+     * @param CurrentFrame 当前帧
+     * @param pKF
+     * @param sAlreadyFound CurrentFrame已经匹配上的mappoint
+     * @param th 控制特征搜索框的大小阈值
+     * @param ORBdist pKF中的mappoint是否能和CurrentFrame匹配成功的描述子距离的阈值
+     * @return 成功匹配的数量
+     */  
     int SearchByProjection(Frame &CurrentFrame, KeyFrame* pKF, const std::set<MapPoint*> &sAlreadyFound, const float th, const int ORBdist);
 
     // Project MapPoints using a Similarity Transformation and search matches.
