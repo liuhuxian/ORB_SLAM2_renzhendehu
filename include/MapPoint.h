@@ -45,6 +45,7 @@ public:
     void SetWorldPos(const cv::Mat &Pos);
     cv::Mat GetWorldPos();
 
+    // 平均的观测方向
     cv::Mat GetNormal();
     KeyFrame* GetReferenceKeyFrame();
 
@@ -112,6 +113,7 @@ public:
     //描述现在是否被tracking跟踪
     bool mbTrackInView;
     int mnTrackScaleLevel;
+    //Frame观测此点的观测角的cos值
     float mTrackViewCos;
      // mnTrackReferenceForFrame防止重复添加局部MapPoint
     long unsigned int mnTrackReferenceForFrame;

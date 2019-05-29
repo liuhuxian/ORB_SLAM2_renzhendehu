@@ -70,7 +70,11 @@ void LocalMapping::Run()
             MapPointCulling();
 
             // Triangulate new MapPoints
-	    // 相机运动过程中与相邻关键帧通过三角化恢复出一些MapPoints
+	    /** 
+	    * 1.找出和当前关键帧共视程度前10/20（单目/双目RGBD）的关键帧
+	    * 2.计算这些关键帧和当前关键帧的F矩阵；
+	    * 3.在满足对级约束条件下，匹配关键帧之间的特征点，通过BOW加速匹配；
+	    */
             CreateNewMapPoints();
 
 	    // 如果已经处理完队列中的最后的一个关键帧
@@ -250,11 +254,12 @@ void LocalMapping::CreateNewMapPoints()
     int nn = 10;
     if(mbMonocular)
         nn=20;
-    //在当前关键帧的essential graph中找到共视程度最高的nn帧相邻帧vpNeighKFs
+    //在当前关键帧的Covisibility graph中找到共视程度最高的nn帧相邻帧存入vpNeighKFs
     const vector<KeyFrame*> vpNeighKFs = mpCurrentKeyFrame->GetBestCovisibilityKeyFrames(nn);
 
     ORBmatcher matcher(0.6,false);
 
+    //当前关键帧在世界坐标系下的位姿
     cv::Mat Rcw1 = mpCurrentKeyFrame->GetRotation();
     cv::Mat Rwc1 = Rcw1.t();
     cv::Mat tcw1 = mpCurrentKeyFrame->GetTranslation();
@@ -318,6 +323,7 @@ void LocalMapping::CreateNewMapPoints()
         // Search matches that fullfil epipolar constraint
 	// 通过极线约束限制匹配时的搜索范围，进行特征点匹配
         vector<pair<size_t,size_t> > vMatchedIndices;
+	// 匹配pKF1与pKF2之间未被匹配的特征点并通过bow加速，并校验是否符合对级约束。vMatchedPairs匹配成功的特征点在各自关键帧中的id。
         matcher.SearchForTriangulation(mpCurrentKeyFrame,pKF2,F12,vMatchedIndices,false);
 
         cv::Mat Rcw2 = pKF2->GetRotation();
@@ -335,8 +341,9 @@ void LocalMapping::CreateNewMapPoints()
         const float &invfy2 = pKF2->invfy;
 
         // Triangulate each match
-	// 步骤6：对每对匹配通过三角化生成3D点
+	// 对每对匹配通过三角化生成3D点
         const int nmatches = vMatchedIndices.size();
+	//遍历vMatchedIndices
         for(int ikp=0; ikp<nmatches; ikp++)
         {
             const int &idx1 = vMatchedIndices[ikp].first;
@@ -351,6 +358,7 @@ void LocalMapping::CreateNewMapPoints()
             bool bStereo2 = kp2_ur>=0;
 
             // Check parallax between rays
+	    //将像素坐标转化为归一化平面坐标
             cv::Mat xn1 = (cv::Mat_<float>(3,1) << (kp1.pt.x-cx1)*invfx1, (kp1.pt.y-cy1)*invfy1, 1.0);
             cv::Mat xn2 = (cv::Mat_<float>(3,1) << (kp2.pt.x-cx2)*invfx2, (kp2.pt.y-cy2)*invfy2, 1.0);
 
@@ -380,6 +388,8 @@ void LocalMapping::CreateNewMapPoints()
                 A.row(3) = xn2.at<float>(1)*Tcw2.row(2)-Tcw2.row(1);
 
                 cv::Mat w,u,vt;
+		//SVD分解A=u*w*vt
+		//实际是要解Ax=0
                 cv::SVD::compute(A,w,u,vt,cv::SVD::MODIFY_A| cv::SVD::FULL_UV);
 
                 x3D = vt.row(3).t();
@@ -388,6 +398,7 @@ void LocalMapping::CreateNewMapPoints()
                     continue;
 
                 // Euclidean coordinates
+		//归一化
                 x3D = x3D.rowRange(0,3)/x3D.at<float>(3);
 
             }
@@ -405,6 +416,7 @@ void LocalMapping::CreateNewMapPoints()
             cv::Mat x3Dt = x3D.t();
 
             //Check triangulation in front of cameras
+	    //检验3d点投影到第一个关键帧的误差
             float z1 = Rcw1.row(2).dot(x3Dt)+tcw1.at<float>(2);
             if(z1<=0)
                 continue;
@@ -441,6 +453,7 @@ void LocalMapping::CreateNewMapPoints()
             }
 
             //Check reprojection error in second keyframe
+            //检验3d点投影到第二个关键帧的误差
             const float sigmaSquare2 = pKF2->mvLevelSigma2[kp2.octave];
             const float x2 = Rcw2.row(0).dot(x3Dt)+tcw2.at<float>(0);
             const float y2 = Rcw2.row(1).dot(x3Dt)+tcw2.at<float>(1);
@@ -467,6 +480,7 @@ void LocalMapping::CreateNewMapPoints()
             }
 
             //Check scale consistency
+            //检验尺度的连续性
             cv::Mat normal1 = x3D-Ow1;
             float dist1 = cv::norm(normal1);
 
@@ -485,6 +499,7 @@ void LocalMapping::CreateNewMapPoints()
                 continue;
 
             // Triangulation is succesfull
+	    //如果三角化成功
             MapPoint* pMP = new MapPoint(x3D,mpCurrentKeyFrame,mpMap);
 
             pMP->AddObservation(mpCurrentKeyFrame,idx1);            

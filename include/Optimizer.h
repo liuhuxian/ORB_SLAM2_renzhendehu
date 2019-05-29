@@ -48,11 +48,15 @@ public:
     void static BundleAdjustment(const std::vector<KeyFrame*> &vpKF, const std::vector<MapPoint*> &vpMP,
                                  int nIterations = 5, bool *pbStopFlag=NULL, const unsigned long nLoopKF=0,
                                  const bool bRobust = true);
-    /**调用BundleAdjustment()，对map中所有keyframe和mappoint进行BA
+    /**调用BundleAdjustment()，将map中所有keyframe位姿和mappoint位置作为优化遍历进行BA
      */
     void static GlobalBundleAdjustemnt(Map* pMap, int nIterations=5, bool *pbStopFlag=NULL,
                                        const unsigned long nLoopKF=0, const bool bRobust = true);
     /**
+     * 将Covisibility graph中与pKF连接的关键帧放入lLocalKeyFrames作为g2o图的顶点
+     * 将被lLocalKeyFrames看到的mappoint放入lLocalMapPoints中，作为g2o图的顶点
+     * lFixedCameras储存着能看到lLocalMapPoints，但是又不在lLocalKeyFrames里的关键帧，作为g2o图的顶点
+     * 将lLocalMapPoints里的mappoint的每个观测作为一条误差项边
      */
     void static LocalBundleAdjustment(KeyFrame* pKF, bool *pbStopFlag, Map *pMap);
     
@@ -68,8 +72,8 @@ public:
 
     // if bFixScale is true, 6DoF optimization (stereo,rgbd), 7DoF otherwise (mono)
     //顶点为map中所有keyframe
-    //边为LoopConnections中的连接关系
-    //essential graph中的边：1.扩展树（spanning tree）连接关系，2.闭环连接关系,3.共视关系非常好的连接关系（共视点为100）
+    //边为LoopConnections中的连接关系,以及essential graph中的边：1.扩展树（spanning tree）连接关系，
+    //2.闭环连接关系,3.共视关系非常好的连接关系（共视点为100）
     void static OptimizeEssentialGraph(Map* pMap, KeyFrame* pLoopKF, KeyFrame* pCurKF,
                                        const LoopClosing::KeyFrameAndPose &NonCorrectedSim3,
                                        const LoopClosing::KeyFrameAndPose &CorrectedSim3,

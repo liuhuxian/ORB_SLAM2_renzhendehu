@@ -88,7 +88,11 @@ protected:
     * - 插入关键帧，更新Covisibility图和Essential图，以及spanningtree
     */
     void ProcessNewKeyFrame();
-    // 相机运动过程中与相邻关键帧通过三角化恢复出一些MapPoints
+    /** 
+     * 1.找出和当前关键帧共视程度前10/20（单目/双目RGBD）的关键帧
+     * 2.计算这些关键帧和当前关键帧的F矩阵；
+     * 3.在满足对级约束条件下，匹配关键帧之间的特征点，通过BOW加速匹配；
+     */
     void CreateNewMapPoints();
 
     // 剔除ProcessNewKeyFrame和CreateNewMapPoints函数中引入在mlpRecentAddedMapPoints的质量不好的MapPoints

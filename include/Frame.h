@@ -245,6 +245,7 @@ private:
     cv::Mat mRcw;
     cv::Mat mtcw;
     cv::Mat mRwc;
+    //关心在世界坐标系中位姿
     cv::Mat mOw; //==mtwc
 };
 

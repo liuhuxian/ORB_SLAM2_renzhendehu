@@ -117,6 +117,7 @@ public:
     int SearchForInitialization(Frame &F1, Frame &F2, std::vector<cv::Point2f> &vbPrevMatched, std::vector<int> &vnMatches12, int windowSize=10);
 
     // Matching to triangulate new MapPoints. Check Epipolar Constraint.
+    // 匹配pKF1与pKF2之间的未被匹配的特征点并通过bow加速，并校验是否符合对级约束。vMatchedPairs匹配成功的特征点在各自关键帧中的id。
     int SearchForTriangulation(KeyFrame *pKF1, KeyFrame* pKF2, cv::Mat F12,
                                std::vector<pair<size_t, size_t> > &vMatchedPairs, const bool bOnlyStereo);
 
@@ -149,8 +150,10 @@ public:
 
 protected:
 
+    //判断kp1，与kp2在基础矩阵F12下是否复合对极约束
     bool CheckDistEpipolarLine(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, const cv::Mat &F12, const KeyFrame *pKF);
 
+    //根据观测角的cos值确定搜索区域的半径
     float RadiusByViewingCos(const float &viewCos);
 
     //找出数组histo中，vector.size()数量最大的前三位。也就是角度范围最多的前三位。

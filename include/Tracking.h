@@ -201,9 +201,7 @@ protected:
     //判断是否需要添加新的keyframe
     bool NeedNewKeyFrame();
     /**
-    * @brief 创建新的关键帧
-    *
-    * 对于非单目的情况，同时创建新的MapPoints
+    * @brief 创建新的关键帧，对于非单目的情况，同时创建新的MapPoints
     */
     void CreateNewKeyFrame();
 

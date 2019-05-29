@@ -62,6 +62,7 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
         const int &nPredictedLevel = pMP->mnTrackScaleLevel;
 
         // The size of the window will depend on the viewing direction
+	//根据观测角的cos值确定搜索区域的半径
         float r = RadiusByViewingCos(pMP->mTrackViewCos);
 
         if(bFactor)
@@ -158,6 +159,7 @@ bool ORBmatcher::CheckDistEpipolarLine(const cv::KeyPoint &kp1,const cv::KeyPoin
 
     const float dsqr = num*num/den;
 
+    //复合极线搜索的条件
     return dsqr<3.84*pKF2->mvLevelSigma2[kp2.octave];
 }
 
@@ -712,9 +714,11 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
     const DBoW2::FeatureVector &vFeatVec2 = pKF2->mFeatVec;
 
     //Compute epipole in second image
+    //pKF1光心在世界坐标系中的位姿
     cv::Mat Cw = pKF1->GetCameraCenter();
     cv::Mat R2w = pKF2->GetRotation();
     cv::Mat t2w = pKF2->GetTranslation();
+    //pKF1光心在相机2坐标系中的位姿
     cv::Mat C2 = R2w*Cw+t2w;
     const float invz = 1.0f/C2.at<float>(2);
     const float ex =pKF2->fx*C2.at<float>(0)*invz+pKF2->cx;
@@ -739,6 +743,7 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
     DBoW2::FeatureVector::const_iterator f1end = vFeatVec1.end();
     DBoW2::FeatureVector::const_iterator f2end = vFeatVec2.end();
 
+    //遍历vFeatVec1，vFeatVec2中的节点
     while(f1it!=f1end && f2it!=f2end)
     {
         if(f1it->first == f2it->first)
@@ -765,7 +770,7 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
                 
                 int bestDist = TH_LOW;
                 int bestIdx2 = -1;
-                
+                //在pk2中相同的节点中寻找匹配的特征点
                 for(size_t i2=0, iend2=f2it->second.size(); i2<iend2; i2++)
                 {
                     size_t idx2 = f2it->second[i2];
@@ -773,6 +778,7 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
                     MapPoint* pMP2 = pKF2->GetMapPoint(idx2);
                     
                     // If we have already matched or there is a MapPoint skip
+		    //已经匹配上了，或者已经有了mappoint
                     if(vbMatched2[idx2] || pMP2)
                         continue;
 
@@ -799,8 +805,10 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
                             continue;
                     }
 
+                    //如果kp1，与kp2在基础矩阵F12下是否复合对极约束
                     if(CheckDistEpipolarLine(kp1,kp2,F12,pKF2))
                     {
+			//更新最好点和次好点的id
                         bestIdx2 = idx2;
                         bestDist = dist;
                     }
@@ -839,6 +847,7 @@ int ORBmatcher::SearchForTriangulation(KeyFrame *pKF1, KeyFrame *pKF2, cv::Mat F
         }
     }
 
+    //剔除方向不符合的匹配点
     if(mbCheckOrientation)
     {
         int ind1=-1;
