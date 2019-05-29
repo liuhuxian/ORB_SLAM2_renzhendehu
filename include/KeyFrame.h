@@ -154,6 +154,7 @@ public:
     static long unsigned int nNextId;
     //当前keyframe的序号
     long unsigned int mnId;
+    //生成这个keyframe的Frame id
     const long unsigned int mnFrameId;
 
     const double mTimeStamp;

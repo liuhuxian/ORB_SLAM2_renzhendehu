@@ -88,17 +88,15 @@ protected:
     bool CheckNewKeyFrames();
 
     //获取候选闭环关键帧放入mvpEnoughConsistentCandidates
+    //如果mvpEnoughConsistentCandidates为空则放回false
     bool DetectLoop();
 
     /**
-    * @brief 计算当前帧与闭环帧的Sim3变换等
     *
-    * 1. 通过Bow加速描述子的匹配，利用RANSAC粗略地计算出当前帧与闭环帧的Sim3（当前帧---闭环帧）
-    * 2. 根据估计的Sim3，对3D点进行投影找到更多匹配，通过优化的方法计算更精确的Sim3（当前帧---闭环帧）
+    * 1. 候选帧和当前关键帧通过Bow加速描述子的匹配，剔除特征点匹配数少的闭环候选帧
+    * 2. 利用RANSAC粗略地计算出当前帧与闭环帧的Sim3，选出较好的那个sim3，确定闭环帧
+    * 2. 根据确定的闭环帧和对应的Sim3，对3D点进行投影找到更多匹配，通过优化的方法计算更精确的Sim3。
     * 3. 将闭环帧以及闭环帧相连的关键帧的MapPoints与当前帧的点进行匹配（当前帧---闭环帧+相连关键帧）
-    * 
-    * 注意以上匹配的结果均都存在成员变量mvpCurrentMatchedPoints中，
-    * 实际的更新步骤见CorrectLoop()步骤3：Start Loop Fusion
     */
     bool ComputeSim3();
     /**针对CorrectedPosesMap里的关键帧，mvpLoopMapPoints投影到这个关键帧上与其特征点并进行匹配。

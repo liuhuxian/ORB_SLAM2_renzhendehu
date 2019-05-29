@@ -72,7 +72,7 @@ void LoopClosing::Run()
                // In the stereo/RGBD case s=1
 		//计算候选关键帧的与当前帧的sim3并且返回是否形成闭环的判断
 		//并在候选帧中找出闭环帧
-		//并计算出
+		//并计算出当前帧和闭环帧的sim3
                if(ComputeSim3())
                {
                    // Perform loop fusion and pose graph optimization
@@ -118,7 +118,7 @@ bool LoopClosing::DetectLoop()
     }
 
     //If the map contains less than 10 KF or less than 10 KF have passed from last loop detection
-    // 步骤1：如果距离上次闭环没多久（小于10帧），或者map中关键帧总共还没有10帧，则不进行闭环检测
+    // 如果距离上次闭环没多久（小于10帧），或者map中关键帧总共还没有10帧，则不进行闭环检测
     if(mpCurrentKF->mnId<mLastLoopKFid+10)
     {
         mpKeyFrameDB->add(mpCurrentKF);
@@ -131,7 +131,7 @@ bool LoopClosing::DetectLoop()
     // We will impose loop candidates to have a higher similarity than this
     //遍历所有共视关键帧，计算当前关键帧与每个共视关键的bow相似度得分，计算minScore
     
-    //返回Covisibility graph中与此节点连接的节点（即关键帧）
+    //返回Covisibility graph中与此节点连接的节点（即关键帧），总的来说这一步是为了计算阈值 minScore
     const vector<KeyFrame*> vpConnectedKeyFrames = mpCurrentKF->GetVectorCovisibleKeyFrames();
     const DBoW2::BowVector &CurrentBowVec = mpCurrentKF->mBowVec;
     float minScore = 1;
@@ -149,7 +149,7 @@ bool LoopClosing::DetectLoop()
     }
 
     // Query the database imposing the minimum score
-    //在最低相似度 minScore的要求下，获得闭环检测的候选帧
+    //在最低相似度 minScore的要求下，获得闭环检测的候选帧集合
     vector<KeyFrame*> vpCandidateKFs = mpKeyFrameDB->DetectLoopCandidates(mpCurrentKF, minScore);
 
     // If there are no loop candidates, just add new keyframe and return false
@@ -166,7 +166,7 @@ bool LoopClosing::DetectLoop()
     // A group is consistent with a previous group if they share at least a keyframe
     // We must detect a consistent loop in several consecutive keyframes to accept it
     //vpCandidateKFs中的每个闭环检测的候选帧都会，通过共视关键帧，扩展为一个spCandidateGroup
-    //对于这vpCandidateKFs.size()个spCandidateGroup，
+    //对于这vpCandidateKFs.size()个spCandidateGroup进行连续性（consistency）判断
     
     
     
@@ -208,7 +208,7 @@ bool LoopClosing::DetectLoop()
 		    //true表示标记sit所在的spCandidateGroup与sPreviousGroup连续（consistent）
 		    //之后要插入到vCurrentConsistentGroups
                     bConsistent=true;
-		    //true表示标记vCurrentConsistentGroups元素之间存在连续（consistent）
+		    //true表示有spCandidateGroup与vCurrentConsistentGroups中的元素存在连续（consistent）
                     bConsistentForSomeGroup=true;
                     break;
                 }
@@ -678,6 +678,7 @@ void LoopClosing::CorrectLoop()
     mbRunningGBA = true;
     mbFinishedGBA = false;
     mbStopGBA = false;
+    //新建一个线程进行Global BA
     mpThreadGBA = new thread(&LoopClosing::RunGlobalBundleAdjustment,this,mpCurrentKF->mnId);
 
     // Loop closed. Release Local Mapping.

@@ -132,6 +132,7 @@ Tracking::Tracking(System *pSys, ORBVocabulary* pVoc, FrameDrawer *pFrameDrawer,
     cout << "- Initial Fast Threshold: " << fIniThFAST << endl;
     cout << "- Minimum Fast Threshold: " << fMinThFAST << endl;
 
+    //如果是双目或者RGBD，需要计算mThDepth
     if(sensor==System::STEREO || sensor==System::RGBD)
     {
         mThDepth = mbf*(float)fSettings["ThDepth"]/fx;
@@ -169,7 +170,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
 {
     mImGray = imRectLeft;
     cv::Mat imGrayRight = imRectRight;
-
+    //将图片转化为灰度图
     if(mImGray.channels()==3)
     {
         if(mbRGB)
@@ -197,6 +198,7 @@ cv::Mat Tracking::GrabImageStereo(const cv::Mat &imRectLeft, const cv::Mat &imRe
         }
     }
 
+    //构造函数是stereo版本的
     mCurrentFrame = Frame(mImGray,imGrayRight,timestamp,mpORBextractorLeft,mpORBextractorRight,mpORBVocabulary,mK,mDistCoef,mbf,mThDepth);
 
     Track();
@@ -240,7 +242,7 @@ cv::Mat Tracking::GrabImageMonocular(const cv::Mat &im, const double &timestamp)
 {
     mImGray = im;
 
-    //将图片转化为灰度图
+	  //将图片转化为灰度图
     if(mImGray.channels()==3)
     {
         if(mbRGB)
@@ -549,6 +551,7 @@ void Tracking:: Track()
 
 void Tracking::StereoInitialization()
 {
+    //特征点要大于500个才能初始化
     if(mCurrentFrame.N>500)
     {
         // Set Frame pose to the origin
@@ -894,6 +897,7 @@ bool Tracking::TrackReferenceKeyFrame()
 void Tracking::UpdateLastFrame()
 {
     // Update pose according to reference keyframe
+    //根据上一帧的
     KeyFrame* pRef = mLastFrame.mpReferenceKF;
     cv::Mat Tlr = mlRelativeFramePoses.back();
 
@@ -904,7 +908,7 @@ void Tracking::UpdateLastFrame()
 
     // Create "visual odometry" MapPoints
     // We sort points according to their measured depth by the stereo/RGB-D sensor
-    //将深度z>0筛选出来放入vDepthIdx
+    //将mLastFrame深度z>0筛选出来放入vDepthIdx
     vector<pair<float,int> > vDepthIdx;
     vDepthIdx.reserve(mLastFrame.N);
     for(int i=0; i<mLastFrame.N;i++)
@@ -923,7 +927,7 @@ void Tracking::UpdateLastFrame()
 
     // We insert all close points (depth<mThDepth)
     // If less than 100 close points, we insert the 100 closest ones.
-    //只
+    //遍历vDepthIdx
     int nPoints = 0;
     for(size_t j=0; j<vDepthIdx.size();j++)
     {
@@ -932,7 +936,7 @@ void Tracking::UpdateLastFrame()
         bool bCreateNew = false;
 
         MapPoint* pMP = mLastFrame.mvpMapPoints[i];
-	//如果mLastFrame的第i个特征点有对应的mappoint
+	//如果mLastFrame的第i个特征点没有对应的mappoint
         if(!pMP)
             bCreateNew = true;
         else if(pMP->Observations()<1)
@@ -1062,6 +1066,7 @@ bool Tracking::TrackLocalMap()
         {
             if(!mCurrentFrame.mvbOutlier[i])
             {
+		//标记该mappoint点被当前帧观测
                 mCurrentFrame.mvpMapPoints[i]->IncreaseFound();
                 if(!mbOnlyTracking)
                 {
@@ -1279,6 +1284,8 @@ void Tracking::SearchLocalPoints()
 {
     // Do not search map points already matched
     //当前帧mCurrentFrame匹配的mappoint点就不要匹配了
+    //这些匹配点都是在```TrackWithMotionModel()```，```TrackReferenceKeyFrame()```，```Relocalization()```中当前帧和mappoint的匹配
+    //它们都是被“预测”和当前帧匹配的mappoint点匹配
     for(vector<MapPoint*>::iterator vit=mCurrentFrame.mvpMapPoints.begin(), vend=mCurrentFrame.mvpMapPoints.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
@@ -1290,11 +1297,11 @@ void Tracking::SearchLocalPoints()
             }
             else
             {
-		// 更新能观测到该点的帧数加1
+		//预测这个mappoint会被匹配
                 pMP->IncreaseVisible();
 		 // 标记该点被当前帧观测到
                 pMP->mnLastFrameSeen = mCurrentFrame.mnId;
-		// 标记该点将来不被投影，因为已经匹配过
+		// 标记该点将来在matcher.SearchByProjection()不被投影，因为已经匹配过
                 pMP->mbTrackInView = false;
             }
         }
@@ -1304,6 +1311,7 @@ void Tracking::SearchLocalPoints()
 
     // Project points in frame and check its visibility
     //遍历刚才更新的mvpLocalMapPoints，筛选哪些不在视野范围内的mappoint
+    //在视野范围内的mappoint是被预测我们能够和当前帧匹配上的mappoint点
     for(vector<MapPoint*>::iterator vit=mvpLocalMapPoints.begin(), vend=mvpLocalMapPoints.end(); vit!=vend; vit++)
     {
         MapPoint* pMP = *vit;
@@ -1315,6 +1323,7 @@ void Tracking::SearchLocalPoints()
 	//如果此mappoint点在视野范围内
         if(mCurrentFrame.isInFrustum(pMP,0.5))
         {
+	    //预测这个mappoint会被匹配
             pMP->IncreaseVisible();
             nToMatch++;
         }
@@ -1533,7 +1542,7 @@ bool Tracking::Relocalization()
     int nCandidates=0;
 
     //候选帧和当前帧进行特征匹配，剔除匹配数量少的候选关键帧
-    //为未被剔除的关键帧就新建PnPsolver，准备在后面进行pnp
+    //为未被剔除的关键帧就新建PnPsolver，准备在后面进行epnp
     for(int i=0; i<nKFs; i++)
     {
 	//候选帧

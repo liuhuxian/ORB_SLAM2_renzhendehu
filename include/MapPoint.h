@@ -98,7 +98,9 @@ public:
 public:
     long unsigned int mnId;
     static long unsigned int nNextId;
+    //创建这个mappoint的keyframe id
     long int mnFirstKFid;
+    //创建这个mappoint的Frame id
     long int mnFirstFrame;
     //此mappoint可以被keyframe看到的数量
     int nObs;
@@ -155,8 +157,11 @@ protected:
      KeyFrame* mpRefKF;
 
      // Tracking counters
-     //TrackLocalMap()里有用到
+     //预测这个mappoint点能被多少Frame看到
+     //它在SearchLocalPoints()中更新
      int mnVisible;
+     //它在TrackLocalMap()中更新
+     //表示此mappoint点确实被Frame跟踪到了
      int mnFound;
 
      // Bad flag (we do not currently erase MapPoint from memory)

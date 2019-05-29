@@ -229,7 +229,7 @@ cv::Mat PnPsolver::iterate(int nIterations, bool &bNoMore, vector<bool> &vbInlie
         if(mnInliersi>=mRansacMinInliers)
         {
             // If it is the best solution so far, save it
-	    //这是目前最好的结果，更新mnBestInliers，mnBestInliers 
+	    //这是目前最好的结果，更新mnBestInliers，mnBestInliers ,mBestTcw
             if(mnInliersi>mnBestInliers)
             {
                 mvbBestInliers = mvbInliersi;

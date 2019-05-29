@@ -46,11 +46,13 @@ int main(int argc, char **argv)
     vector<string> vstrImageLeft;
     vector<string> vstrImageRight;
     vector<double> vTimestamps;
+    //读取图片目录
     LoadImages(string(argv[3]), vstrImageLeft, vstrImageRight, vTimestamps);
 
     const int nImages = vstrImageLeft.size();
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
+    //创建ORB_SLAM2::System对象，系统执行其构造函数
     ORB_SLAM2::System SLAM(argv[1],argv[2],ORB_SLAM2::System::STEREO,true);
 
     // Vector for tracking time statistics

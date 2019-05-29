@@ -188,10 +188,10 @@ protected:
     * @brief 对mvpLocalKeyFrames，mvpLocalMapPoints进行跟踪
     * 
     * 1. 更新局部地图，包括局部关键帧和关键点
-    * 2. 对局部MapPoints进行投影匹配
-    * 3. 根据匹配对估计当前帧的姿态
-    * 4. 根据姿态剔除误匹配
-    * @return true if success
+    * 2. 以局部地图的mappoint为范围和当前帧进行特征匹配
+    * 3. 根据匹配对通过BA估计当前帧的姿态
+    * 4. 更新当前帧的MapPoints被观测程度，并统计跟踪局部地图的效果
+    * @return 根据跟踪局部地图的效果判断当前帧的跟踪成功与否，返回其判断结果
     * @see V-D track Local Map
     */
     bool TrackLocalMap();

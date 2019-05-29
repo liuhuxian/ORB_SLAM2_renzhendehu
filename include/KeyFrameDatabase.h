@@ -53,6 +53,7 @@ public:
 
    // Loop Detection
    //在KeyFrameDatabase，以及与pKF在covisibility graph连接的keyframe中找出与pKF可能形成闭环的候选帧
+   //与DetectRelocalizationCandidates的区别是，在最开始先搜索了在covisibility graph与其连接的关键帧
    std::vector<KeyFrame *> DetectLoopCandidates(KeyFrame* pKF, float minScore);
 
    // Relocalization

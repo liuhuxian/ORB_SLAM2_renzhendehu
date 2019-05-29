@@ -100,7 +100,7 @@ void LocalMapping::Run()
                 // 在这里再删除冗余的关键帧
                 KeyFrameCulling();
             }
-	    // 将当前帧加入到闭环检测队列中
+	    // 将当前帧加入到闭环检测关键帧队列中
             mpLoopCloser->InsertKeyFrame(mpCurrentKeyFrame);
         }
         else if(Stop())
@@ -158,6 +158,7 @@ void LocalMapping::ProcessNewKeyFrame()
     mpCurrentKeyFrame->ComputeBoW();
 
     // Associate MapPoints to the new keyframe and update normal and descriptor
+    //遍历和关键帧匹配的mappoint
     const vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
 
     for(size_t i=0; i<vpMapPointMatches.size(); i++)
@@ -190,7 +191,7 @@ void LocalMapping::ProcessNewKeyFrame()
     }    
 
     // Update links in the Covisibility Graph
-    //更新共视图Covisibility graph,essential graph和spanningtree
+    //更新共视图Covisibility graph,spanningtree
     mpCurrentKeyFrame->UpdateConnections();
 
     // Insert Keyframe in Map
@@ -497,6 +498,7 @@ void LocalMapping::CreateNewMapPoints()
             pMP->UpdateNormalAndDepth();
 
             mpMap->AddMapPoint(pMP);
+	    //新添加的点要加入这里，然后让MapPointCulling()检测
             mlpRecentAddedMapPoints.push_back(pMP);
 
             nnew++;

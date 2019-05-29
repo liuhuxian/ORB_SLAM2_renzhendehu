@@ -310,7 +310,7 @@ int Optimizer::PoseOptimization(Frame *pFrame)
     {
     unique_lock<mutex> lock(MapPoint::mGlobalMutex);
 
-    //遍历pFrame帧的所有特征点
+    //遍历pFrame帧的所有特征点，添加g2o边
     for(int i=0; i<N; i++)
     {
         MapPoint* pMP = pFrame->mvpMapPoints[i];
@@ -505,6 +505,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     lLocalKeyFrames.push_back(pKF);
     pKF->mnBALocalForKF = pKF->mnId;
 
+    //将Covisibility graph中与pKF连接的关键帧放入lLocalKeyFrames
     const vector<KeyFrame*> vNeighKFs = pKF->GetVectorCovisibleKeyFrames();
     for(int i=0, iend=vNeighKFs.size(); i<iend; i++)
     {
@@ -515,6 +516,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     }
 
     // Local MapPoints seen in Local KeyFrames
+    //将被lLocalKeyFrames看到的mappoint放入lLocalMapPoints中
     list<MapPoint*> lLocalMapPoints;
     for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin() , lend=lLocalKeyFrames.end(); lit!=lend; lit++)
     {
@@ -533,6 +535,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     }
 
     // Fixed Keyframes. Keyframes that see Local MapPoints but that are not Local Keyframes
+    //lFixedCameras储存着能看到lLocalMapPoints，但是又不在lLocalKeyFrames里的关键帧
     list<KeyFrame*> lFixedCameras;
     for(list<MapPoint*>::iterator lit=lLocalMapPoints.begin(), lend=lLocalMapPoints.end(); lit!=lend; lit++)
     {
@@ -567,6 +570,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     unsigned long maxKFid = 0;
 
     // Set Local KeyFrame vertices
+    //将lLocalKeyFrames关键帧的位姿设置为g2ol图的顶点
     for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin(), lend=lLocalKeyFrames.end(); lit!=lend; lit++)
     {
         KeyFrame* pKFi = *lit;
@@ -580,6 +584,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     }
 
     // Set Fixed KeyFrame vertices
+    //将lFixedCameras里的关键帧的位姿设置为g2o图的顶点
     for(list<KeyFrame*>::iterator lit=lFixedCameras.begin(), lend=lFixedCameras.end(); lit!=lend; lit++)
     {
         KeyFrame* pKFi = *lit;
@@ -616,6 +621,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
     const float thHuberMono = sqrt(5.991);
     const float thHuberStereo = sqrt(7.815);
 
+    //将lLocalMapPoints里的mappoint空间位置作为g2o图的顶点
     for(list<MapPoint*>::iterator lit=lLocalMapPoints.begin(), lend=lLocalMapPoints.end(); lit!=lend; lit++)
     {
         MapPoint* pMP = *lit;
@@ -629,6 +635,8 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
         const map<KeyFrame*,size_t> observations = pMP->GetObservations();
 
         //Set edges
+	//遍历当前mappoint的每个观测
+	//将这些观测形成g2o图的一条边，以重投影误差作为误差项
         for(map<KeyFrame*,size_t>::const_iterator mit=observations.begin(), mend=observations.end(); mit!=mend; mit++)
         {
             KeyFrame* pKFi = mit->first;
@@ -805,6 +813,7 @@ void Optimizer::LocalBundleAdjustment(KeyFrame *pKF, bool* pbStopFlag, Map* pMap
 
     // Recover optimized data
 
+    //恢复优化变量的数据
     //Keyframes
     for(list<KeyFrame*>::iterator lit=lLocalKeyFrames.begin(), lend=lLocalKeyFrames.end(); lit!=lend; lit++)
     {
