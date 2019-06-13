@@ -77,7 +77,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame* pKF, float mi
 {
     //返回此关键帧在Covisibility graph中与之相连接（有共视关系）的节点
     set<KeyFrame*> spConnectedKeyFrames = pKF->GetConnectedKeyFrames();
-    //和pKF有相同单词且具有共视关系的关键帧将会放在lKFsSharingWords
+    //和pKF有相同单词且不具有共视关系的关键帧将会放在lKFsSharingWords
     list<KeyFrame*> lKFsSharingWords;
 
     // Search all keyframes that share a word with current keyframes
@@ -96,13 +96,14 @@ vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame* pKF, float mi
             for(list<KeyFrame*>::iterator lit=lKFs.begin(), lend= lKFs.end(); lit!=lend; lit++)
             {
                 KeyFrame* pKFi=*lit;
-		//如果pKFi被标记访问过
+		//如果pKFi没有被标记访问过
                 if(pKFi->mnLoopQuery!=pKF->mnId)
                 {
                     pKFi->mnLoopWords=0;
-		    //如果pKFi和pKF有共视关系
+		    //如果pKFi和pKF没有共视关系
                     if(!spConnectedKeyFrames.count(pKFi))
                     {
+			//标记pKFi被访问过
                         pKFi->mnLoopQuery=pKF->mnId;
                         lKFsSharingWords.push_back(pKFi);
                     }
@@ -119,7 +120,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame* pKF, float mi
     list<pair<float,KeyFrame*> > lScoreAndMatch;
 
     // Only compare against those keyframes that share enough words
-    //在lKFsSharingWords找出nLoopWords的最大值，也就是单词投票最多的哪个关键帧
+    //在lKFsSharingWords找出nLoopWords的最大值，也就是单词投票最多的那个关键帧
     int maxCommonWords=0;
     for(list<KeyFrame*>::iterator lit=lKFsSharingWords.begin(), lend= lKFsSharingWords.end(); lit!=lend; lit++)
     {
@@ -168,6 +169,7 @@ vector<KeyFrame*> KeyFrameDatabase::DetectLoopCandidates(KeyFrame* pKF, float mi
         float bestScore = it->first;
         float accScore = it->first;
         KeyFrame* pBestKF = pKFi;
+	//遍历vpNeighs
         for(vector<KeyFrame*>::iterator vit=vpNeighs.begin(), vend=vpNeighs.end(); vit!=vend; vit++)
         {
             KeyFrame* pKF2 = *vit;
